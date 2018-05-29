@@ -1,8 +1,6 @@
 import json
 import sqlite3
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.dates import DateFormatter
 from matplotlib.dates import date2num
 from sklearn.cluster import KMeans
 from sklearn import preprocessing
@@ -167,7 +165,7 @@ def gmm(data_flat, vel, wid,
         # source
         # http://scikit-learn.org/stable/auto_examples/mixture/plot_gmm_covariances.html#sphx-glr-auto-examples-mixture-plot-gmm-covariances-py
         if pca:
-            pca = PCA(n_components='mle') #TODO what should this be? see what works best
+            pca = PCA(n_components=num_clusters) #TODO what should this be? see what works best
             pca.fit(data_flat)
             data_flat = pca.transform(data_flat)
 
@@ -279,19 +277,3 @@ def kmeans(data_flat, vel, wid, num_clusters=5,  vel_threshold = 10., num_init =
     return gs_flg_kmeans
 
 
-def plot_scatter(time, gate, gs_flg, title):
-    cm = plt.cm.get_cmap('coolwarm')
-    alpha = 0.2
-    size = 1
-    marker = 's'
-    fig = plt.figure(figsize=(6,6))
-
-    plt.scatter(time[gs_flg == 0], gate[gs_flg == 0],s=size,c='red',marker=marker, alpha=alpha, cmap=cm)  #plot IS as red
-    plt.scatter(time[gs_flg == 1], gate[gs_flg == 1],s=size,c='blue',marker=marker, alpha=alpha, cmap=cm) #plot GS as blue
-    #plt.scatter(emp_time[emp_gs_flg == -1], emp_gate[emp_gs_flg == -1],s=size,c='blue',marker=marker, alpha=alpha)  #plot the undertermined scatter as blue
-    ax=plt.gca()
-    ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
-    #ax1.set_xlabel('Time UT')
-    ax.set_ylabel('Range gate')
-    ax.set_title(title)
-    plt.savefig(title + ".png")

@@ -177,7 +177,6 @@ def drawCB(fig, coll, cmap, norm, map_plot=False, pos=[0,0,1,1]):
     Written by AJ 20120820
 
     """
-    import matplotlib,numpy
     import matplotlib.pyplot as plot
 
     if not map_plot:
@@ -208,8 +207,16 @@ def drawCB(fig, coll, cmap, norm, map_plot=False, pos=[0,0,1,1]):
     return cb
 
 
-
-def plot_clusters(x, x_name, y, y_name, cluster_membership):
+def plot_clusters_colormesh(x, x_name, y, y_name, cluster_membership):
+    """
+    Plot x vs. y, color-coded by cluster using a color mesh
+    :param x:
+    :param x_name:
+    :param y:
+    :param y_name:
+    :param cluster_membership: list of integer cluster memberships. len(x) = len(y) = len(cluster_membership)
+    :return:
+    """
     import matplotlib.pyplot as plt
     import numpy as np
 
@@ -262,5 +269,78 @@ def plot_clusters(x, x_name, y, y_name, cluster_membership):
     # Draw the colorbar.
     cb = drawCB(fig, colormesh, cmap, norm, map_plot=0,
                       pos=[pos[0] + pos[2] + .02, pos[1], 0.02, pos[3]])
+    # TODO where is this used, i must move this part there
     plt.show()
     plt.savefig((num_clusters + 2).__str__() + "_GMM_all_clusters_colormesh_" + start_time.__str__() + ".png")
+
+
+def plot_is_gs_scatterplot(time, gate, gs_flg, title):
+    """
+    Plot IS and GS scatterplot
+    :param time:
+    :param gate:
+    :param gs_flg:
+    :param title:
+    :return:
+    """
+    from matplotlib.dates import DateFormatter
+    import matplotlib.pyplot as plt
+
+    cm = plt.cm.get_cmap('coolwarm')
+    alpha = 0.2
+    size = 1
+    marker = 's'
+    fig = plt.figure(figsize=(6,6))
+
+    plt.scatter(time[gs_flg == 0], gate[gs_flg == 0],s=size,c='red',marker=marker, alpha=alpha, cmap=cm)  #plot IS as red
+    plt.scatter(time[gs_flg == 1], gate[gs_flg == 1],s=size,c='blue',marker=marker, alpha=alpha, cmap=cm) #plot GS as blue
+    #plt.scatter(emp_time[emp_gs_flg == -1], emp_gate[emp_gs_flg == -1],s=size,c='blue',marker=marker, alpha=alpha)  #plot the undertermined scatter as blue
+    ax=plt.gca()
+    ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+    #ax1.set_xlabel('Time UT')
+    ax.set_ylabel('Range gate')
+    ax.set_title(title)
+    # TODO get rid of this here
+    plt.savefig(title + ".png")
+
+def plot_is_gs_colormesh(ax, time, time_flat, gate, gs_flg, num_range_gates, plot_indeterminate=False):
+    from matplotlib.dates import date2num
+    import numpy as np
+    import matplotlib as mpl
+    from matplotlib.dates import DateFormatter
+
+    time = date2num(time)       # Time that has NOT been extended out to match up with the length of other data
+    num_times = len(time)
+    color_mesh = np.zeros((num_times, num_range_gates)) * np.nan
+
+    # For IS (0) and GS (1)
+    colors = [1,2,3]    #Will make IS (label=0) red and GS (label=1) blue
+    for label in [0, 1, -1]:
+        i_match = np.where(gs_flg == label)[0]
+        for i in i_match:
+            t = np.where(time_flat[i] == time)[0][0]      # One timestamp, multiple gates.
+            g = gate[i]
+            if plot_indeterminate and label == -1:
+                color_mesh[t, g] = colors[2]
+            else:
+                color_mesh[t, g] = colors[np.abs(label)]
+
+
+    # Create a matrix of the right size
+    range_gate = np.linspace(1, num_range_gates, num_range_gates)
+    mesh_x, mesh_y = np.meshgrid(time, range_gate)
+    invalid_data = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)
+
+    #cmap, norm, bounds = utilities.genCmap('is-gs', [0, 3], colors='lasse', lowGray=False)
+    cmap = mpl.colors.ListedColormap([(1.0, 0.0, 0.0, 1.0), (0.0, 0.0, 1.0, 1.0), (0.0, 0.0, 0.0, 1.0)])
+    bounds = np.round(np.linspace(colors[0], colors[2], 3))
+    bounds = np.insert(bounds, 0, -50000.)
+    bounds = np.append(bounds, 50000.)
+    norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+    cmap.set_bad('w', alpha=0.0)
+
+    ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+    ax.set_xlabel('UT')
+    ax.set_xlim([time[0], time[-1]])
+    ax.set_ylabel('Range gate')
+    ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
