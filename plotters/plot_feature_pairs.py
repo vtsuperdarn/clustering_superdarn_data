@@ -3,7 +3,7 @@ import datetime as dt
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
-import utilities
+from dbtools import *
 
 # TODO add some statistical information to plot by cluster
 # TODO you could do a colormesh for the combined graph, but the scales are so varying it's almost pointless
@@ -13,10 +13,11 @@ def plot_feature_pairs_by_cluster(data_dict, num_clusters=6, save=True):
     """
 
     :param data_dict:
-    :param save: If false, plots will pop up - otherwise they will be saved. Recommend saving because this puts out 21 plots.
+    :param save: If false, plots will pop up - if true, they will be saved.
+                 Recommend saving because this puts out 21*num_clusters plots.
     :return:
     """
-    data_flat, beam, gate, vel, wid, power, phi0, data_time = cluster.flatten_data(data_dict,  extras=True)
+    data_flat, beam, gate, vel, wid, power, phi0, data_time = flatten_data(data_dict,  extras=True)
 
     """
     gate = gate ** 2      # RG = RG^2
@@ -44,7 +45,6 @@ def plot_feature_pairs_by_cluster(data_dict, num_clusters=6, save=True):
     """ Scatterplot """
     for ix in range(len(features)):
         for iy in range(ix+1, len(features)):
-            #utilities.plot_clusters_colormesh(features[ix], feature_names[ix], features[iy], feature_names[iy], clusters)
 
             plot_number += 1
             x = features[ix]
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     # Choose your date(s) and database
     skip = []
     start_time = dt.datetime(2018, 2, 7)
-    db_path = "./Data/cvw_GSoC_2018-02-07.db"
+    db_path = "../Data/cvw_GSoC_2018-02-07.db"
     rad = "cvw"
 
     for i in range(1):
@@ -85,5 +85,5 @@ if __name__ == '__main__':
         s = start_time + dt.timedelta(i)
         e = start_time + dt.timedelta(i + 1)
 
-        data = cluster.read_db(db_path, rad, s, e)
+        data = read_db(db_path, rad, s, e)
         plot_feature_pairs_by_cluster(data)

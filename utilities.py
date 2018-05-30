@@ -269,9 +269,6 @@ def plot_clusters_colormesh(x, x_name, y, y_name, cluster_membership):
     # Draw the colorbar.
     cb = drawCB(fig, colormesh, cmap, norm, map_plot=0,
                       pos=[pos[0] + pos[2] + .02, pos[1], 0.02, pos[3]])
-    # TODO where is this used, i must move this part there
-    plt.show()
-    plt.savefig((num_clusters + 2).__str__() + "_GMM_all_clusters_colormesh_" + start_time.__str__() + ".png")
 
 
 def plot_is_gs_scatterplot(time, gate, gs_flg, title):

@@ -2,14 +2,15 @@ from cluster import *
 from utilities import plot_is_gs_colormesh
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
+from dbtools import *
 
-
-def gmm_vs_empirical_colormesh(data_dict, start_time, end_time, clusters=6, show=True, save=False):
+def gmm_vs_empirical_colormesh(data_dict, start_time, end_time, clusters=6, save=True):
     """
     Compare traditional, empirical, kmeans, and GMM
     :param data_dict: dictionary from read_db
     :param start_time: datetime object
     :param end_time: datetime object
+    :param save: if false, show plot, if save, create a .png file
     :return: creates a graph as PNG, title includes start_time
     """
     trad_gs_flg = traditional(data_dict)
@@ -80,11 +81,12 @@ def gmm_vs_empirical_colormesh(data_dict, start_time, end_time, clusters=6, show
 
         filename = int(b).__str__() + " gmm vs. trad vs. emp colormesh " + start_time.__str__() + ".png"
         fig.tight_layout()
-        if show or b == 1:
-            plt.show()
+
         if save:
             plt.savefig(filename)
             plt.close()
+        else:
+            plt.show()
 
 
 if __name__ == '__main__':
@@ -93,7 +95,7 @@ if __name__ == '__main__':
     skip = []
     start_time = dt.datetime(2018, 2, 7)
     rad = 'sas'
-    db_path = "./Data/sas_GSoC_2018-02-07.db"
+    db_path = "../Data/sas_GSoC_2018-02-07.db"
 
     for i in range(1):
         if i in skip:
@@ -102,4 +104,4 @@ if __name__ == '__main__':
         s = start_time + dt.timedelta(i)
         e = start_time + dt.timedelta(i + 1)
         data = read_db(db_path, rad, s, e)
-        gmm_vs_empirical_colormesh(data, s, e, clusters=2, show=False, save=True)
+        gmm_vs_empirical_colormesh(data, s, e, clusters=2, save=False)

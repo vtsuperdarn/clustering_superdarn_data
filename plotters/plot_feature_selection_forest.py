@@ -1,9 +1,10 @@
-from cluster import empirical, read_db, gmm
+from cluster import empirical, gmm
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.dates import date2num
 from sklearn import preprocessing
 from sklearn.ensemble import ExtraTreesClassifier
+from dbtools import read_db
 
 
 def plot_forest_importances(data_dict, labels='empirical'):
@@ -105,7 +106,7 @@ if __name__ == '__main__':
     start_time = dt.datetime(2018, 2, 7)
     days = 1
     rad = 'sas'
-    db_path = "./Data/sas_GSoC_2018-02-07.db"
+    db_path = "../Data/sas_GSoC_2018-02-07.db"
 
     for i in range(days):
         if i in skip:

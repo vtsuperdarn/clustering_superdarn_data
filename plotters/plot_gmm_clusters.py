@@ -1,9 +1,12 @@
 from cluster import *
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+from matplotlib.dates import DateFormatter
 import utilities
 import datetime as dt
+from dbtools import *
 
-def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=5, show=True, save=False, use_pickle=False, save_pickle=False):
+def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=6, save=True, use_pickle=False, save_pickle=False):
     """
     Plots GMM against empirical, but with color-coding for the various clusters
 
@@ -15,7 +18,7 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=5, show=True
     data_flat, beam, gate, vel, wid, power, phi0, data_time = flatten_data(data_dict, extras=True)
 
     """ Do Empirical Method"""
-    emp_gs_flg, emp_time, emp_gate = empirical(data_dict)
+    emp_gs_flg = empirical(data_dict)
     remove_close_range = gate >= 10
     num_emp = len(emp_gs_flg[remove_close_range])
 
@@ -25,8 +28,8 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=5, show=True
         cluster_membership = pickle.load(picklefile)
     else:
         estimator = GaussianMixture(n_components=num_clusters,
-                                covariance_type='full', max_iter=500,
-                                random_state=0, n_init=5, init_params='kmeans')
+                                    covariance_type='full', max_iter=500,
+                                    random_state=0, n_init=5, init_params='kmeans')
         estimator.fit(data_flat)
         cluster_membership = estimator.predict(data_flat)
 
@@ -85,9 +88,9 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=5, show=True
 
     plt.figure(figsize=(15, 6))
     ax0 = plt.subplot(111)
-    plt.scatter(emp_time[emp_gs_flg == 0], emp_gate[emp_gs_flg == 0], s=size, c='red', marker=marker, alpha=alpha,
+    plt.scatter(data_time[emp_gs_flg == 0], gate[emp_gs_flg == 0], s=size, c='red', marker=marker, alpha=alpha,
                 cmap=cm, label='GS')  # plot IS as red
-    plt.scatter(emp_time[emp_gs_flg == 1], emp_gate[emp_gs_flg == 1], s=size, c='blue', marker=marker, alpha=alpha,
+    plt.scatter(data_time[emp_gs_flg == 1], gate[emp_gs_flg == 1], s=size, c='blue', marker=marker, alpha=alpha,
                 cmap=cm, label='IS')  # plot GS as blue
     ax0.xaxis.set_major_formatter(DateFormatter('%H:%M'))
     ax0.set_xlim([start_time, end_time])
@@ -108,7 +111,7 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=5, show=True
     if save:
         plt.savefig(str(plot_number) + "_GMM_is_gs_" + start_time.__str__() + ".png")
         plt.close()
-    if show:
+    else:
         plt.show()
 
 
@@ -141,7 +144,7 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=5, show=True
         if save:
             plt.savefig((i+1).__str__() + "_GMM_cluster_" + start_time.__str__() + ".png")
             plt.close()
-        if show:
+        else:
             plt.show()
 
 
@@ -165,7 +168,7 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=5, show=True
     if save:
         plt.savefig(plot_number.__str__() + "_GMM_all_clusters_" + start_time.__str__() + ".png")
         plt.close()
-    if show:
+    else:
         plt.show()
 
     """ Plot RTI """
@@ -234,75 +237,18 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=5, show=True
     cb = utilities.drawCB(fig, colormesh, cmap, norm, map_plot=0,
                       pos=[pos[0] + pos[2] + .02, pos[1], 0.02, pos[3]])
 
-    #if show:
-    plt.show()
     if save:
         plt.savefig((num_clusters + 2).__str__() + "_GMM_all_clusters_colormesh_" + start_time.__str__() + ".png")
         plt.close()
-
-
-    """ Plot Histograms 
-    data_flat_columns = ['beam', 'gate', 'vel', 'wid', 'power', 'phi0', 'time']
-    gate = gate ** 2      # RG = RG^2
-    wid = np.sign(wid) * np.log(np.abs(wid))
-    vel = np.sign(vel) * np.log(np.abs(vel))
-    power = np.abs(power) ** 1.5
-    data_flat_unscaled = np.column_stack((beam, gate, vel, wid, power, phi0, data_time))
-    data_flat_unscaled = data_flat_unscaled[remove_close_range, :]
-    gs_data = data_flat_unscaled[gs_flg_gmm[remove_close_range] == 1]
-    gs_data[:,2] = np.abs(gs_data[:,2])
-    is_data = data_flat_unscaled[gs_flg_gmm[remove_close_range] == 0]
-    is_data[:,2] = np.abs(is_data[:,2])
-    plot_number = 8
-
-    # Plot a separate histogram for each feature
-    for i in range(data_flat.shape[1]):
-        plt.figure(figsize=(15, 6))
-        ax0 = plt.subplot(111)
-        ax0.set_xlabel(data_flat_columns[i])
-        ax0.set_ylabel('pdf')
-        ax0.set_title('probability density for ' + data_flat_columns[i])
-
-        gs_num_bins = len(np.unique(gs_data[:, i]))
-        is_num_bins = len(np.unique(is_data[:, i]))
-        if gs_num_bins > 100:
-            gs_num_bins = 300
-        if is_num_bins > 100:
-            is_num_bins = 300
-
-        # Use higher resolution for velocity
-        gs_y, gs_binedges = np.histogram(gs_data[:, i], bins=gs_num_bins)
-        is_y, is_binedges = np.histogram(is_data[:, i], bins=is_num_bins)
-        gs_bincenters = 0.5 * (gs_binedges[1:] + gs_binedges[:-1])
-        is_bincenters = 0.5 * (is_binedges[1:] + is_binedges[:-1])
-        gs_pdf = gs_y / float(len(gs_data))
-        is_pdf = is_y / float(len(is_data))
-
-        #gs_threshhold = gs_pdf > 0.0008
-        #is_threshhold = is_pdf > 0.0008
-        plt.plot(gs_bincenters, gs_pdf, 'b', label='GS')
-        plt.plot(is_bincenters, is_pdf, 'r', label='IS')
-        #plt.xlim(xmin=0)
-        #plt.xlim(xmax=650)
-        #plt.ylim(ymin=0)
-        plot_number += 1
-        plt.legend()
-
-        #legend_handles.append(mpatches.Patch(color=cluster_col[i], label=cluster_labels[i]))
-        #plt.legend(handles=legend_handles)
-        if show or i == 2 or i == 3:
-            plt.show()
-        if save:
-            plt.savefig(str(plot_number) + '_' + data_flat_columns[i] +"_GMM_histogram" + start_time.__str__() + ".png")
-            plt.close()
-    """
+    else:
+        plt.show()
 
 
 if __name__ == '__main__':
     skip = []
     start_time = dt.datetime(2018, 2, 7)
     rad = 'cvw'
-    db_path = "./Data/cvw_GSoC_2018-02-07.db"
+    db_path = "../Data/cvw_GSoC_2018-02-07.db"
     transform = False
 
     for i in range(1):
@@ -312,8 +258,8 @@ if __name__ == '__main__':
         s = start_time + dt.timedelta(i)
         e = start_time + dt.timedelta(i + 1)
 
-        data = read_db(db_path, rad, s, e, beam=12)
+        data = read_db(db_path, rad, s, e)
         if not data:
             print('No data found')
             continue
-        plot_gmm_clusters(data, s, e, num_clusters=1, show=False, save=True)
+        plot_gmm_clusters(data, s, e, num_clusters=2, save=False)

@@ -3,6 +3,7 @@ import itertools
 from sklearn.mixture import GaussianMixture
 import numpy as np
 import matplotlib.pyplot as plt
+from dbtools import *
 
 """ Plot a bunch of GMMs models, and compare their AIC and BIC to get model of best fit. """
 """ It would be difficult to compare kernels like in the GP. Compare covariance matrices instead? """
@@ -118,27 +119,6 @@ def select_cov_and_clusters(data_dict):
     spl.set_ylabel('BIC')
     spl.legend([b[0] for b in bars], cv_types)
 
-    # Plot the winner
-    """
-    splot = plt.subplot(2, 1, 2)
-    Y_ = best_model.predict(X)
-    for i, (mean, cov, color) in enumerate(zip(best_model.means_, best_model.covariances_,
-                                               color_iter)):
-        v, w = linalg.eigh(cov)
-        if not np.any(Y_ == i):
-            continue
-        plt.scatter(X[Y_ == i, 0], X[Y_ == i, 1], .8, color=color)
-
-        # Plot an ellipse to show the Gaussian component
-        angle = np.arctan2(w[0][1], w[0][0])
-        angle = 180. * angle / np.pi  # convert to degrees
-        v = 2. * np.sqrt(2.) * np.sqrt(v)
-        ell = mpl.patches.Ellipse(mean, v[0], v[1], 180. + angle, color=color)
-        ell.set_clip_box(splot.bbox)
-        ell.set_alpha(.5)
-        splot.add_artist(ell)
-    """
-
     plt.xticks((n_components_range))
     plt.yticks(())
     plt.title('Selected GMM: {} cov, {} components'.format(best_cv, best_n_components))
@@ -152,7 +132,7 @@ if __name__ == '__main__':
     skip = []
     start_time = dt.datetime(2018, 2, 7)
     rad = 'cvw'
-    db_path = "./Data/cvw_GSoC_2018-02-07.db"
+    db_path = "../Data/cvw_GSoC_2018-02-07.db"
 
     for i in range(1):
         if i in skip:

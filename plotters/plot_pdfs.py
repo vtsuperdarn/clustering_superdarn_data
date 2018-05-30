@@ -1,11 +1,20 @@
-from cluster import flatten_data, gmm, read_db
+from cluster import gmm
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime as dt
 from matplotlib.dates import DateFormatter
+from dbtools import *
 
-def plot_pdfs_overlay(data_dict, start_time, end_time, num_clusters=6, show=True, save=False):
-
+def plot_pdfs_overlay(data_dict, start_time, num_clusters=6, save=True):
+    """
+    :param data_dict:
+    :param start_time:
+    :param end_time:
+    :param num_clusters:
+    :param show:
+    :param save: if false, show plot, if save, create a .png file
+    :return:
+    """
     data_flat, beam, gate, vel, wid, power, phi0, data_time = flatten_data(data_dict, extras=True)
     vel = np.abs(vel)
     remove_close_range = gate >= 10
@@ -66,14 +75,14 @@ def plot_pdfs_overlay(data_dict, start_time, end_time, num_clusters=6, show=True
 
         # legend_handles.append(mpatches.Patch(color=cluster_col[i], label=cluster_labels[i]))
         # plt.legend(handles=legend_handles)
-        if show:
-            plt.show()
         if save:
             plt.savefig(str(plot_number) + '_' + data_flat_columns[i] + "_GMM_histogram" + start_time.__str__() + ".png")
             plt.close()
+        else:
+            plt.show()
 
 
-def plot_pdfs(data_dict, start_time, end_time, num_clusters=6, show=True, save=False):
+def plot_pdfs(data_dict, start_time, num_clusters=6, save=False):
 
     data_flat, beam, gate, vel, wid, power, phi0, data_time = flatten_data(data_dict, extras=True)
     remove_close_range = gate >= 10
@@ -198,42 +207,21 @@ def plot_pdfs(data_dict, start_time, end_time, num_clusters=6, show=True, save=F
             ax4.xaxis.set_major_formatter(DateFormatter('%H:%M'))
             ax5.xaxis.set_major_formatter(DateFormatter('%H:%M'))
 
-        """
-        is_num_bins = len(np.unique(is_data[:, i]))
-        if is_num_bins:
-            if is_num_bins > 1000:
-                is_num_bins = 1000
-            is_y, is_binedges = np.histogram(is_data[:, i], bins=is_num_bins)
-            is_bincenters = 0.5 * (is_binedges[1:] + is_binedges[:-1])
-            is_pdf = is_y / float(len(is_data))
-            plt.plot(is_bincenters, is_pdf, 'r', label='IS')
-
-        # gs_threshhold = gs_pdf > 0.0008
-        # is_threshhold = is_pdf > 0.0008
-        plt.ylim(ymin=0)
-        plot_number += 1
-        plt.legend()
-        """
-
-        # legend_handles.append(mpatches.Patch(color=cluster_col[i], label=cluster_labels[i]))
-        # plt.legend(handles=legend_handles)
-        #ax0.set_xlim(left=-500, right=500)
-        #ax1.set_xlim(left=-500, right=500)
-        #ax2.set_xlim(left=-500, right=500)
 
         plt.tight_layout()
-        if show:
-            plt.show()
+
         if save:
             plt.savefig(str(plot_number) + '_' + data_flat_columns[i] + "_GMM_histogram" + start_time.__str__() + ".png")
             plt.close()
+        else:
+            plt.show()
 
 
 if __name__ == '__main__':
     skip = []
     start_time = dt.datetime(2018, 2, 7)
     rad = 'cvw'
-    db_path = "./Data/cvw_GSoC_2018-02-07.db"
+    db_path = "../Data/cvw_GSoC_2018-02-07.db"
     transform = False
 
     for i in range(1):
@@ -247,4 +235,4 @@ if __name__ == '__main__':
         if not data:
             print('No data found')
             continue
-        plot_pdfs(data, s, e, num_clusters=2, show=True, save=False)
+        plot_pdfs(data, s, num_clusters=2, save=False)

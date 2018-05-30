@@ -1,12 +1,14 @@
-from cluster import flatten_data, kmeans, empirical, gmm, read_db
-import numpy as np
+from cluster import kmeans, empirical, gmm
+import matplotlib.pyplot as plt
 from utilities import plot_is_gs_scatterplot
+from dbtools import *
 
-def compare_pca(data_dict, num_clusters=6):
+def compare_pca(data_dict, num_clusters=6, save=True):
     """
     Plot K-means and GMM with and without PCA
     :param data_dict:
     :param num_clusters:
+    :param save: if false, show plot, if save, create a .png file
     :return:
     """
     #TODO - this script is still in bad shape, needs updating before use
@@ -21,7 +23,9 @@ def compare_pca(data_dict, num_clusters=6):
     gs_flg_kmeans_pca = kmeans(data_flat, vel, wid, num_clusters=num_clusters, pca=True)
 
     plot_is_gs_scatterplot(time, gate, gs_flg_kmeans, "KMeans results ")
+    plt.show()
     plot_is_gs_scatterplot(time, gate, gs_flg_kmeans_pca, "KMeans + PCA results")
+    plt.show()
 
     # Compare accuracy against empirical method
     emp_gs_flg, emp_time, emp_gate = empirical(data_dict)
@@ -60,7 +64,7 @@ if __name__ == '__main__':
     skip = []
     start_time = dt.datetime(2018, 2, 7)
     rad = 'cvw'
-    db_path = "./Data/cvw_GSoC_2018-02-07.db"
+    db_path = "../Data/cvw_GSoC_2018-02-07.db"
 
     for i in range(1):
         if i in skip:
@@ -69,4 +73,4 @@ if __name__ == '__main__':
         s = start_time + dt.timedelta(i)
         e = start_time + dt.timedelta(i + 1)
         data = read_db(db_path, rad, s, e)
-        compare_pca(data, num_clusters=2)
+        compare_pca(data, num_clusters=2, save=False)
