@@ -9,7 +9,7 @@ First, make sure the Python3 tkinter package is installed. This is required for 
 #### To use in the virtual environment:
 `source venv/bin/activate`
 
-`python plot_gmm_vs_empirical.py`
+`python plot_feature_selection_forest.py`
 
 To leave the virtual environment:
 `deactivate`
@@ -27,4 +27,4 @@ Install these dependencies if needed:
 `pip3 install matplotlib`
 
 Then run:
-`python3 plot_gmm_vs_empirical.py`
+`python3 plot_feature_selection_forest.py`
