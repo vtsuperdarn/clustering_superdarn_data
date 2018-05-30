@@ -157,7 +157,7 @@ def traditional(data_dict):
 
 # TODO add a bool param that plots the results by cluster. Could be useful, but which dimensions to use? Time vs. gate makes sense, or time vs. gate vs. vel
 def gmm(data_flat, vel, wid,
-        num_clusters=30,  vel_threshold=15,
+        num_clusters=6,  vel_threshold=15,
         bayes=False, weight_prior=1, pca=False,
         cluster_identities=False,
         make_pickle="", use_pickle=""):
