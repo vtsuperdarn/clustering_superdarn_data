@@ -303,7 +303,7 @@ def plot_is_gs_scatterplot(time, gate, gs_flg, title):
     # TODO get rid of this here
     plt.savefig(title + ".png")
 
-def plot_is_gs_colormesh(ax, time, time_flat, gate, gs_flg, num_range_gates, plot_indeterminate=False):
+def plot_is_gs_colormesh(ax, time, time_flat, gate, gs_flg, num_range_gates, plot_closerange=False, plot_indeterminate=False):
     from matplotlib.dates import date2num
     import numpy as np
     import matplotlib as mpl
@@ -314,12 +314,14 @@ def plot_is_gs_colormesh(ax, time, time_flat, gate, gs_flg, num_range_gates, plo
     color_mesh = np.zeros((num_times, num_range_gates)) * np.nan
 
     # For IS (0) and GS (1)
-    colors = [1,2,3]    #Will make IS (label=0) red and GS (label=1) blue
+    colors = [1, 2, 3]    #Will make IS (label=0) red and GS (label=1) blue
     for label in [0, 1, -1]:
         i_match = np.where(gs_flg == label)[0]
         for i in i_match:
             t = np.where(time_flat[i] == time)[0][0]      # One timestamp, multiple gates.
             g = gate[i]
+            if g <= 10 and not plot_closerange:
+                continue
             if plot_indeterminate and label == -1:
                 color_mesh[t, g] = colors[2]
             else:

@@ -127,6 +127,7 @@ def flatten_data(data_dict, extras=False, transform=False):
 
 
 def empirical(data_dict):
+    """
     gs_hops = [1.0, 2.0, 3.0]
     is_hops = [0.5, 1.5, 2.5]
 
@@ -142,11 +143,16 @@ def empirical(data_dict):
             elif data_dict['hop'][i][j] in gs_hops:
                 emp_gsflg.append(1)
 
-    return np.array(emp_gsflg), np.array(emp_time), np.array(emp_gate)
-
+    return np.array(emp_gsflg)
+    """
+    return np.hstack(data_dict['gsflg'])
 
 def traditional(data_dict):
-    return np.hstack(data_dict['gsflg'])
+    #vel = np.hstack(data_dict['velocity'])
+    #wid = np.hstack(data_dict['width'])
+    #gs_trad = vel < (33.1 + 0.139 * wid - 0.00133 * (wid ** 2))
+    #return gs_trad
+    return np.abs(np.hstack(data_dict['gsflg']))
 
 
 # TODO add a bool param that plots the results by cluster. Could be useful, but which dimensions to use? Time vs. gate makes sense, or time vs. gate vs. vel
