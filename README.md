@@ -7,9 +7,9 @@ First, make sure the Python3 tkinter package is installed. This is required for 
 
 
 ### To use in the virtual environment:
-`source venv/bin/activate
+`source venv/bin/activate`
 
-python plot_gmm_vs_empirical.py`
+`python plot_gmm_vs_empirical.py`
 
 To leave the virtual environment:
 `deactivate`
