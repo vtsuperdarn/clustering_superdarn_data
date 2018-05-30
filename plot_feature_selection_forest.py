@@ -6,10 +6,14 @@ from sklearn import preprocessing
 from sklearn.ensemble import ExtraTreesClassifier
 
 
-def plot_forest_importances(data_dict, labels='gmm'):
+def plot_forest_importances(data_dict, labels='empirical'):
     """
     Based on this method:
     http://scikit-learn.org/stable/auto_examples/ensemble/plot_forest_importances.html#sphx-glr-auto-examples-ensemble-plot-forest-importances-py
+
+    Note: The results of this vary A LOT based on whether you use GMM, or empirical, or pass the forest the unscaled data, or the scaled.
+          The one point of agreement is that range gate and time are always important.
+          However, we need to use a more robust method of model selection, since this is so variable.
 
     Trains a forest to rank feature importance
     :param data_dict: dictionary from read_db
@@ -61,9 +65,8 @@ def plot_forest_importances(data_dict, labels='gmm'):
 
 
     if labels == 'empirical':
-        gs_flg = empirical(data_dict)      #finding feature importance according to empirical model
+        gs_flg = empirical(data_dict)
     elif labels == 'gmm':
-        # This gives a weird result that makes no physical sense...
         gs_flg = gmm(data_flat, vel, wid)
     else:
         print('Bad label: ', labels)
@@ -72,7 +75,7 @@ def plot_forest_importances(data_dict, labels='gmm'):
     # Build a forest and compute the feature importances
     forest = ExtraTreesClassifier(n_estimators=500, random_state=0)
 
-    forest.fit(data_flat, gs_flg)
+    forest.fit(data_flat_unscaled, gs_flg)
     importances = forest.feature_importances_
     std = np.std([tree.feature_importances_ for tree in forest.estimators_],
                  axis=0)
@@ -111,4 +114,4 @@ if __name__ == '__main__':
         s = start_time + dt.timedelta(i)
         e = start_time + dt.timedelta(i + 1)
         data = read_db(db_path, rad, s, e)
-        plot_forest_importances(data, labels='empirical')
+        plot_forest_importances(data)
