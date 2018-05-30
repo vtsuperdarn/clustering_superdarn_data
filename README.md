@@ -12,10 +12,12 @@ First, make sure the Python3 tkinter package is installed. This is required for 
 `python plot_feature_selection_forest.py`
 
 To leave the virtual environment:
+
 `deactivate`
 
 
 #### To use with a local installation of Python 3
+
 Install these dependencies if needed:
 
 `pip3 install sklearn`
@@ -27,4 +29,5 @@ Install these dependencies if needed:
 `pip3 install matplotlib`
 
 Then run:
+
 `python3 plot_feature_selection_forest.py`
