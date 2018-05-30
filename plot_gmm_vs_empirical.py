@@ -1,8 +1,9 @@
-from cluster import *
-from utilities import plot_is_gs_colormesh
+from superdarn_cluster.cluster import *
+from superdarn_cluster.utilities import plot_is_gs_colormesh
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
-from dbtools import *
+from superdarn_cluster.dbtools import *
+
 
 def gmm_vs_empirical_colormesh(data_dict, start_time, end_time, clusters=6, save=True):
     """
@@ -95,7 +96,7 @@ if __name__ == '__main__':
     skip = []
     start_time = dt.datetime(2018, 2, 7)
     rad = 'sas'
-    db_path = "../Data/sas_GSoC_2018-02-07.db"
+    db_path = "./Data/sas_GSoC_2018-02-07.db"
 
     for i in range(1):
         if i in skip:

@@ -1,9 +1,9 @@
-from cluster import *
+from superdarn_cluster.cluster import *
 import itertools
 from sklearn.mixture import GaussianMixture
 import numpy as np
 import matplotlib.pyplot as plt
-from dbtools import *
+from superdarn_cluster.dbtools import *
 
 """ Plot a bunch of GMMs models, and compare their AIC and BIC to get model of best fit. """
 """ It would be difficult to compare kernels like in the GP. Compare covariance matrices instead? """
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     skip = []
     start_time = dt.datetime(2018, 2, 7)
     rad = 'cvw'
-    db_path = "../Data/cvw_GSoC_2018-02-07.db"
+    db_path = "./Data/cvw_GSoC_2018-02-07.db"
 
     for i in range(1):
         if i in skip:

@@ -1,9 +1,9 @@
-from cluster import gmm
+from superdarn_cluster.cluster import gmm
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime as dt
 from matplotlib.dates import DateFormatter
-from dbtools import *
+from superdarn_cluster.dbtools import *
 
 def plot_pdfs_overlay(data_dict, start_time, num_clusters=6, save=True):
     """
@@ -221,7 +221,7 @@ if __name__ == '__main__':
     skip = []
     start_time = dt.datetime(2018, 2, 7)
     rad = 'cvw'
-    db_path = "../Data/cvw_GSoC_2018-02-07.db"
+    db_path = "./Data/cvw_GSoC_2018-02-07.db"
     transform = False
 
     for i in range(1):

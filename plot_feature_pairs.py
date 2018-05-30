@@ -1,9 +1,9 @@
-import cluster
+import superdarn_cluster.cluster
 import datetime as dt
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
-from dbtools import *
+from superdarn_cluster.dbtools import *
 
 # TODO add some statistical information to plot by cluster
 # TODO you could do a colormesh for the combined graph, but the scales are so varying it's almost pointless
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     # Choose your date(s) and database
     skip = []
     start_time = dt.datetime(2018, 2, 7)
-    db_path = "../Data/cvw_GSoC_2018-02-07.db"
+    db_path = "./Data/cvw_GSoC_2018-02-07.db"
     rad = "cvw"
 
     for i in range(1):

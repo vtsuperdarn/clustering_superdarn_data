@@ -1,10 +1,9 @@
-from cluster import *
+from superdarn_cluster.cluster import *
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
-import utilities
 import datetime as dt
-from dbtools import *
+from superdarn_cluster.dbtools import *
 
 def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=6, save=True, use_pickle=False, save_pickle=False):
     """
@@ -248,7 +247,7 @@ if __name__ == '__main__':
     skip = []
     start_time = dt.datetime(2018, 2, 7)
     rad = 'cvw'
-    db_path = "../Data/cvw_GSoC_2018-02-07.db"
+    db_path = "./Data/cvw_GSoC_2018-02-07.db"
     transform = False
 
     for i in range(1):

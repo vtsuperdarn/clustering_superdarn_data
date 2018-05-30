@@ -1,7 +1,7 @@
-from cluster import kmeans, empirical, gmm
+from superdarn_cluster.cluster import kmeans, empirical, gmm
 import matplotlib.pyplot as plt
-from utilities import plot_is_gs_scatterplot
-from dbtools import *
+from superdarn_cluster.utilities import plot_is_gs_scatterplot
+from superdarn_cluster.dbtools import *
 
 def compare_pca(data_dict, num_clusters=6, save=True):
     """
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     skip = []
     start_time = dt.datetime(2018, 2, 7)
     rad = 'cvw'
-    db_path = "../Data/cvw_GSoC_2018-02-07.db"
+    db_path = "./Data/cvw_GSoC_2018-02-07.db"
 
     for i in range(1):
         if i in skip:
