@@ -3,8 +3,8 @@
 ### Setup instructions:
 
 First, make sure the Python3 tkinter package is installed. This is required for matplotlib plots.
-`sudo apt-get install python3-tk`
 
+`sudo apt-get install python3-tk`
 
 #### To use in the virtual environment:
 `source venv/bin/activate`
