@@ -1,12 +1,13 @@
 from superdarn_cluster.cluster import *
 import itertools
 from sklearn.mixture import GaussianMixture
-import numpy as np
 import matplotlib.pyplot as plt
 from superdarn_cluster.dbtools import *
 
 """ Plot a bunch of GMMs models, and compare their AIC and BIC to get model of best fit. """
 """ It would be difficult to compare kernels like in the GP. Compare covariance matrices instead? """
+
+#TODO There are a lot of problems in this script, like where the * is on the graph (just remove it), plotting different ranges of clusters
 
 def plot_aic_bic(data_dict, date, save=False):
     # Compare different models - number of features, kernel type. Params like num_clusters, etc. Find ones with lowest AIC or BIC.

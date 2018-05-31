@@ -1,9 +1,10 @@
 from superdarn_cluster.cluster import gmm
-import numpy as np
 import matplotlib.pyplot as plt
 import datetime as dt
 from matplotlib.dates import DateFormatter
 from superdarn_cluster.dbtools import *
+from sklearn.decomposition import PCA
+
 
 def plot_pdfs_overlay(data_dict, start_time, num_clusters=6, save=True):
     """
@@ -82,37 +83,51 @@ def plot_pdfs_overlay(data_dict, start_time, num_clusters=6, save=True):
             plt.show()
 
 
-def plot_pdfs(data_dict, start_time, num_clusters=6, save=False):
+def plot_pdfs(data_dict, start_time, num_clusters=6, save=False, gmm_variation='PCA', pca_components=5):
 
-    data_flat, beam, gate, vel, wid, power, phi0, data_time = flatten_data(data_dict, extras=True)
-    remove_close_range = gate >= 10
+    data_flat, beam, gate, vel, wid, power, phi0, data_time = flatten_data(data_dict, extras=True, remove_close_range=True)
     data_flat_columns = ['beam', 'gate', 'vel', 'wid', 'power', 'phi0', 'time']
 
-    tran_data_flat, _ = flatten_data(data_dict, transform=True)
-    g_gate = gate ** 2  # RG = RG^2
-    g_wid = np.sign(wid) * np.log(np.abs(wid))
-    g_vel = np.sign(vel) * np.log(np.abs(vel))
-    g_power = np.log(power) #np.abs(power) ** 1.5
-    tran_data_flat_unscaled = np.column_stack((beam, g_gate, g_vel, g_wid, g_power, phi0, data_time))
-    tran_data_flat_unscaled = tran_data_flat_unscaled[remove_close_range]
     gs_flg_tran_gmm = gmm(data_flat, vel, wid, num_clusters=num_clusters)
-    tran_gs_data = tran_data_flat_unscaled[gs_flg_tran_gmm[remove_close_range] == 1]
-    tran_is_data = tran_data_flat_unscaled[gs_flg_tran_gmm[remove_close_range] == 0]
 
-    transformed = [1, 2, 3, 4]
+
+    if gmm_variation == 'Transformed':
+        tran_data_flat, _ = flatten_data(data_dict, transform=True)
+        g_gate = gate ** 2  # RG = RG^2
+        g_wid = np.sign(wid) * np.log(np.abs(wid))
+        g_vel = np.sign(vel) * np.log(np.abs(vel))
+        g_power = np.log(power) #np.abs(power) ** 1.5
+        tran_data_flat_unscaled = np.column_stack((beam, g_gate, g_vel, g_wid, g_power, phi0, data_time))
+        tran_gs_data = tran_data_flat_unscaled[gs_flg_tran_gmm == 1]
+        tran_is_data = tran_data_flat_unscaled[gs_flg_tran_gmm == 0]
+        tran_columns = [1, 2, 3, 4]
+
+    elif gmm_variation == 'PCA':
+        # Note - the side by sides here are not going to be a direct comparison,
+        # PCA re-orders the components and reduces the dimensionality.
+        data_flat_longrange = data_flat
+        pca = PCA(n_components=pca_components)
+        pca.fit(data_flat_longrange)
+        pca_data_flat = pca.transform(data_flat_longrange)
+        pca_gs_flg = gmm(pca_data_flat, vel, wid)
+        tran_gs_data = pca_data_flat[pca_gs_flg == 1]
+        tran_is_data = pca_data_flat[pca_gs_flg == 0]
+        tran_data_flat_unscaled = pca_data_flat
+        tran_columns = range(pca_components)
+
 
     data_flat_unscaled = np.column_stack((beam, gate, vel, wid, power, phi0, data_time))
-    data_flat_unscaled = data_flat_unscaled[remove_close_range, :]
+    data_flat_unscaled = data_flat_unscaled
     gs_flg_gmm = gmm(data_flat, vel, wid, num_clusters=num_clusters)
-    gs_data = data_flat_unscaled[gs_flg_gmm[remove_close_range] == 1]
-    is_data = data_flat_unscaled[gs_flg_gmm[remove_close_range] == 0]
+    gs_data = data_flat_unscaled[gs_flg_gmm == 1]
+    is_data = data_flat_unscaled[gs_flg_gmm == 0]
 
     highres_bin_limit = 200
     lowres_bin_limit = 200
 
     # Plot a separate histogram for each feature
     plot_number = 1
-    for i in [1]: #range(data_flat.shape[1]):
+    for i in range(data_flat.shape[1]):
         plt.figure(figsize=(12,10))
 
         ax0 = plt.subplot(321)
@@ -166,7 +181,7 @@ def plot_pdfs(data_dict, start_time, num_clusters=6, save=False):
         plt.legend()
 
 
-        if i in transformed:
+        if i in tran_columns:
             ax3 = plt.subplot(322)
             # ax.set_xlabel(data_flat_columns[i])
             ax3.set_ylabel('pdf')

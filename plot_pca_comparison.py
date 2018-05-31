@@ -1,61 +1,52 @@
-from superdarn_cluster.cluster import kmeans, empirical, gmm
 import matplotlib.pyplot as plt
-from superdarn_cluster.utilities import plot_is_gs_scatterplot
+from sklearn.decomposition import PCA
 from superdarn_cluster.dbtools import *
+from pandas import DataFrame
 
-def compare_pca(data_dict, num_clusters=6, save=True):
-    """
-    Plot K-means and GMM with and without PCA
-    :param data_dict:
-    :param num_clusters:
-    :param save: if false, show plot, if save, create a .png file
-    :return:
-    """
-    #TODO - this script is still in bad shape, needs updating before use
-    #TODO - add plots for both GMM and kmeans, use colormesh instead of scatter
-
+def plot_pca_density(data_dict, save=True, num_clusters=6):
     gate = np.hstack(data_dict['gate'])
     vel = np.hstack(data_dict['velocity'])
     wid = np.hstack(data_dict['width'])
     data_flat, time = flatten_data(data_dict)
+    feature_names = ['beam', 'gate', 'vel', 'wid', 'power', 'phi0', 'time']
+    num_bins = [16, len(np.unique(gate)), 1000, 1000, 1000, 1000, 1000]
 
-    gs_flg_kmeans = kmeans(data_flat, vel, wid, num_clusters=num_clusters)
-    gs_flg_kmeans_pca = kmeans(data_flat, vel, wid, num_clusters=num_clusters, pca=True)
 
-    plot_is_gs_scatterplot(time, gate, gs_flg_kmeans, "KMeans results ")
-    plt.show()
-    plot_is_gs_scatterplot(time, gate, gs_flg_kmeans_pca, "KMeans + PCA results")
-    plt.show()
+    # Great StackOverflow thread on recovering features from PCA:
+    # https://stackoverflow.com/questions/22984335/recovering-features-names-of-explained-variance-ratio-in-pca-with-sklearn
+    pca = PCA(n_components=num_clusters)
+    pca.fit(data_flat)
+    components = DataFrame(pca.components_, columns=feature_names)
+    print("PCA components 0-" + str(num_clusters-1) + " with feature correlations")
+    print("(Each PCA component is a linear combination of all features,")
+    print("with component 0 having the highest importance)")
+    print(components.to_string())
+    data_flat_pca = pca.transform(data_flat)
 
-    # Compare accuracy against empirical method
-    emp_gs_flg, emp_time, emp_gate = empirical(data_dict)
-    num_emp = len(emp_gs_flg)
+    for i in range(data_flat.shape[1]):
+        feat = data_flat[:, i]
+        feat_name = feature_names[i]
 
-    num_true_kmeans_gs = len(np.where((gs_flg_kmeans == 1) & (emp_gs_flg == 1))[
-                                 0])  # Assuming the GS is the cluster with minimum median velocity
-    num_true_kmeans_is = len(np.where((gs_flg_kmeans == 0) & (emp_gs_flg == 0))[0])
-    accur_kmeans = float(num_true_kmeans_gs + num_true_kmeans_is) / num_emp * 100.
+        ax0 = plt.subplot(111)
+        ax0.set_xlabel(feat_name)
+        ax0.set_ylabel('density')
+        ax0.hist(feat, bins=num_bins[i], color='orange')
 
-    num_true_kmeans_pca_gs = len(np.where((gs_flg_kmeans_pca == 1) & (emp_gs_flg == 1))[
-                                     0])  # Assuming the GS is the cluster with minimum median velocity
-    num_true_kmeans_pca_is = len(np.where((gs_flg_kmeans_pca == 0) & (emp_gs_flg == 0))[0])
-    accur_kmeans_pca = float(num_true_kmeans_pca_gs + num_true_kmeans_pca_is) / num_emp * 100.
+        plt.savefig("no pca " + feat_name + ".png")
+        plt.close()
 
-    print('Kmeans ({:3.2f}% agree with empirical)'.format(accur_kmeans))
-    print('PCA Kmeans ({:3.2f}% agree with empirical)'.format(accur_kmeans_pca))
+    for i in range(data_flat_pca.shape[1]):
+        feat_pca = data_flat_pca[:, i]
+        feat_name = feature_names[i]
 
-    gs_flg_gmm = gmm(data_flat, vel, wid, num_clusters=num_clusters)
-    gs_flg_gmm_pca = gmm(data_flat, vel, wid, num_clusters=num_clusters, pca=True)
+        ax0 = plt.subplot(111)
+        ax0.set_title("PCA")
+        ax0.set_xlabel(feat_name)
+        ax0.set_ylabel('density')
+        ax0.hist(feat_pca, bins=50, color='blue')
 
-    num_true_gmm_gs = len(np.where((gs_flg_gmm == 1) & (emp_gs_flg == 1))[0])
-    num_true_gmm_is = len(np.where((gs_flg_gmm == 0) & (emp_gs_flg == 0))[0])
-    accur_gmm = float(num_true_gmm_gs+num_true_gmm_is)/num_emp*100.
-    print('GMM ({:3.2f}% agree with empirical)'.format(accur_gmm))
-
-    num_true_gmm_pca_gs = len(np.where((gs_flg_gmm_pca == 1) & (emp_gs_flg == 1))[0])
-    num_true_gmm_pca_is = len(np.where((gs_flg_gmm_pca == 0) & (emp_gs_flg == 0))[0])
-    accur_gmm_pca = float(num_true_gmm_pca_gs+num_true_gmm_pca_is)/num_emp*100.
-    print('PCA GMM ({:3.2f}% agree with empirical)'.format(accur_gmm_pca))
+        plt.savefig("pca" + str(i) + ".png")
+        plt.close()
 
 
 if __name__ == '__main__':
@@ -73,4 +64,5 @@ if __name__ == '__main__':
         s = start_time + dt.timedelta(i)
         e = start_time + dt.timedelta(i + 1)
         data = read_db(db_path, rad, s, e)
-        compare_pca(data, num_clusters=2, save=False)
+        #compare_pca(data, num_clusters=2, save=False)
+        plot_pca_density(data, save=False)

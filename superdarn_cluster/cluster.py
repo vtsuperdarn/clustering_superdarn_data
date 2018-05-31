@@ -35,7 +35,7 @@ def traditional(data_dict):
 
 def gmm(data_flat, vel, wid,
         num_clusters=6,  vel_threshold=15,
-        bayes=False, weight_prior=1, pca=False,
+        bayes=False, weight_prior=1,
         cluster_identities=False,
         make_pickle="", use_pickle=""):
 
@@ -47,10 +47,6 @@ def gmm(data_flat, vel, wid,
     else:
         # source
         # http://scikit-learn.org/stable/auto_examples/mixture/plot_gmm_covariances.html#sphx-glr-auto-examples-mixture-plot-gmm-covariances-py
-        if pca:
-            pca = PCA(n_components=num_clusters) #TODO what should this be? see what works best
-            pca.fit(data_flat)
-            data_flat = pca.transform(data_flat)
 
         if not bayes:
             estimator = GaussianMixture(n_components=num_clusters,
@@ -118,7 +114,7 @@ def gmm(data_flat, vel, wid,
 
     if cluster_identities:
         clusters = [np.where(cluster_labels == i)[0] for i in range(num_clusters)]
-        return np.array(gs_flg_gmm), clusters, median_vels_gmm
+        return np.array(gs_flg_gmm), clusters, median_vels_gmm, estimator
     else:
         return np.array(gs_flg_gmm)
 

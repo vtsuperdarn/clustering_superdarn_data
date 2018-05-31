@@ -54,8 +54,10 @@ def read_db(db_path, rad, start_time, end_time, beam='*'):
     return data_dict
 
 
-def flatten_data(data_dict, extras=False, transform=False):
+def flatten_data(data_dict, extras=False, scale=True, transform=False, remove_close_range=False):
     """
+    Note: This will not work for scale = True and transform = True.
+
     Helper function to :
     > convert a dictionary from the database to a NumPy array
     > normalize values
@@ -76,9 +78,18 @@ def flatten_data(data_dict, extras=False, transform=False):
     time = np.array(time)
     beam = np.array(beam)
 
+    if remove_close_range:
+        filter = beam > 10
+        beam = beam[filter]
+        gate = gate[filter]
+        vel = vel[filter]
+        wid = wid[filter]
+        power = power[filter]
+        phi0 = phi0[filter]
+        time = time[filter]
+
     if transform:
         """ Gaussify some non-Gaussian features """
-        # Assuming feature order: ['beam', 'gate', 'vel', 'wid', 'power', 'phi0', 'time']
         g_gate = gate ** 2.0      # RG = RG^2
         g_wid = np.sign(wid) * np.log(np.abs(wid))
         g_vel = np.sign(vel) * np.log(np.abs(vel))
@@ -100,9 +111,14 @@ def flatten_data(data_dict, extras=False, transform=False):
     time_scaled = preprocessing.scale(time)
     phi0_scaled = preprocessing.scale(phi0)
 
+    if not scale:
+        data = np.column_stack((beam, gate, vel, wid, power, phi0, time))
 
-    data = np.column_stack((beam_scaled, gate_scaled, vel_scaled, wid_scaled,
-                            power_scaled, phi0_scaled, time_scaled))
+    else:
+        data = np.column_stack((beam_scaled, gate_scaled, vel_scaled, wid_scaled,
+                                power_scaled, phi0_scaled, time_scaled))
+
+    # feature names= ['beam', 'gate', 'vel', 'wid', 'power', 'phi0', 'time']
 
     if extras:
         return data, beam, gate, vel, wid, power, phi0, time
