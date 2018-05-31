@@ -22,7 +22,7 @@ Install requirements using Pip (if python2 is your default, make sure to use pip
 
 `pip install -r requirements.txt`
 
-Now you can run the files (again, use python3 here if python2 is your default:
+Now you can run the files (again, use python3 here if python2 is your default):
 
 `python plot_feature_selection.py`
 
