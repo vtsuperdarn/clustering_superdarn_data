@@ -2,39 +2,30 @@
 
 ### Setup instructions:
 
-First, make sure the Python3 tkinter package is installed. This is required for matplotlib plots.
+This project was written in Python 3.5.2 on Ubuntu 16.04.
+
+### Ubuntu setup:
+
+Make sure the Python3 and Python3 tkinter package is installed. This is required for matplotlib. 
 
 `sudo apt-get install python3-tk`
 
-#### To use in the virtual environment:
+Clone the repo and navigate to the root directory.
 
-Install Python virtual environments:
+Optional step: Create a virtual environment using:
 
-`sudo apt-get install virtualenv`
-
-Navigate to source directory and run:
+`virtualenv -p /usr/bin/python3 venv`
 
 `source venv/bin/activate`
 
-`python plot_feature_selection_forest.py`
+Install requirements using Pip (if python2 is your default, make sure to use pip3 and python3 commands):
 
-To leave the virtual environment:
+`pip install -r requirements.txt`
 
-`deactivate`
+Now you can run the files (again, use python3 here if python2 is your default:
 
+`python plot_feature_selection.py`
 
-#### To use with a local installation of Python 3:
+### Windows setup
 
-Install these dependencies if needed:
-
-`pip3 install sklearn`
-
-`pip3 install scipy`
-
-`pip3 install numpy`
-
-`pip3 install matplotlib`
-
-Navigate to source directory and run:
-
-`python3 plot_feature_selection_forest.py`
+Not tested. Anaconda may be useful for Windows setup, as it contains many of the packages we use.
