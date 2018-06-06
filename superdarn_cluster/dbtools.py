@@ -53,8 +53,8 @@ def read_db(db_path, rad, start_time, end_time, beam='*'):
     data_dict['phi0'] = [json.loads(x[14]) for x in rws]        #phi0 for calculation of elevation angle
     return data_dict
 
-
-def flatten_data(data_dict, extras=False, scale=True, transform=False, remove_close_range=False):
+#TODO rewrite this function it is getting ugly with all the scaling and filtering
+def flatten_data(data_dict, extras=False, scale=True, center=False, transform=False, remove_close_range=False):
     """
     Note: This will not work for scale = True and transform = True.
 
@@ -79,7 +79,7 @@ def flatten_data(data_dict, extras=False, scale=True, transform=False, remove_cl
     beam = np.array(beam)
 
     if remove_close_range:
-        filter = beam > 10
+        filter = gate > 10
         beam = beam[filter]
         gate = gate[filter]
         vel = vel[filter]
@@ -121,6 +121,69 @@ def flatten_data(data_dict, extras=False, scale=True, transform=False, remove_cl
     # feature names= ['beam', 'gate', 'vel', 'wid', 'power', 'phi0', 'time']
 
     if extras:
+        if remove_close_range:
+            return data, beam, gate, vel, wid, power, phi0, time, filter
         return data, beam, gate, vel, wid, power, phi0, time
 
     return data, time
+
+def flatten_data_11_features(data_dict, scaled=False, remove_close_range=False):
+    gate = np.hstack(data_dict['gate'])
+    vel = np.hstack(data_dict['velocity'])
+    wid = np.hstack(data_dict['width'])
+    power = np.hstack(data_dict['power'])
+    phi0 = np.hstack(data_dict['phi0'])
+    elev = np.hstack(data_dict['elevation'])
+    time, beam, freq, nsky, nsch = [], [], [], [], []
+
+    num_scatter = data_dict['num_scatter']
+    for i in range(len(num_scatter)):
+        time.extend(date2num([data_dict['datetime'][i]] * num_scatter[i]))
+        beam.extend([float(data_dict['beam'][i])] * num_scatter[i])
+        freq.extend([float(data_dict['frequency'][i])] * num_scatter[i])
+        nsky.extend([float(data_dict['nsky'][i])] * num_scatter[i])
+        nsch.extend([float(data_dict['nsch'][i])] * num_scatter[i])
+
+    time = np.array(time)
+    beam = np.array(beam)
+    freq = np.array(freq)
+    nsky = np.array(nsky)
+    nsch = np.array(nsch)
+
+    if remove_close_range:
+        filter = gate > 10
+        gate = gate[filter]
+        vel = vel[filter]
+        wid = wid[filter]
+        power = power[filter]
+        beam = beam[filter]
+        time = time[filter]
+        phi0 = phi0[filter]
+        freq = freq[filter]
+        nsky = nsky[filter]
+        nsch = nsch[filter]
+        elev = elev[filter]
+
+    # Scale s.t. variance is 1 and mean is 0
+    gate_scaled = preprocessing.scale(gate)
+    vel_scaled = preprocessing.scale(vel)
+    wid_scaled = preprocessing.scale(wid)
+    power_scaled = preprocessing.scale(power)
+    beam_scaled = preprocessing.scale(beam)
+    time_scaled = preprocessing.scale(time)
+    phi0_scaled = preprocessing.scale(phi0)
+    freq_scaled = preprocessing.scale(freq)
+    nsky_scaled = preprocessing.scale(nsky)
+    nsch_scaled = preprocessing.scale(nsch)
+    elev_scaled = preprocessing.scale(elev)
+
+    if not scaled:
+        return np.column_stack((beam, gate, vel, wid,
+                                power, freq, time,
+                                phi0, elev, nsky, nsch))
+
+
+    else:
+        return np.column_stack((beam_scaled, gate_scaled,vel_scaled,wid_scaled,
+                                power_scaled,freq_scaled, time_scaled,
+                                phi0_scaled, elev_scaled, nsky_scaled, nsch_scaled))

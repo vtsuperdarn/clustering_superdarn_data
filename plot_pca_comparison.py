@@ -14,7 +14,7 @@ def plot_pca_density(data_dict, save=True, num_clusters=6):
 
     # Great StackOverflow thread on recovering features from PCA:
     # https://stackoverflow.com/questions/22984335/recovering-features-names-of-explained-variance-ratio-in-pca-with-sklearn
-    pca = PCA(n_components=num_clusters)
+    pca = PCA(n_components=7)
     pca.fit(data_flat)
     components = DataFrame(pca.components_, columns=feature_names)
     print("PCA components 0-" + str(num_clusters-1) + " with feature correlations")

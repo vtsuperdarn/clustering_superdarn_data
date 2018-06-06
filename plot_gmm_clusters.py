@@ -4,8 +4,15 @@ import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 import datetime as dt
 from superdarn_cluster.dbtools import *
+from sklearn.decomposition import PCA
 
-def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=6, save=True, use_pickle=False, save_pickle=False):
+def test(asdf, bsdf):
+    print(asdf)
+    print(bsdf)
+    return
+
+def plot_gmm_clusters(data_flat, data_flat_unscaled, time, gate, vel, feature_names, range_max, start_time, end_time,
+                      num_clusters=6, radar='', save=True, use_pickle=False, save_pickle=False, picklefile="",):
     """
     Plots GMM against empirical, but with color-coding for the various clusters
 
@@ -14,17 +21,15 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=6, save=True
     :param end_time:
     :return:
     """
-    data_flat, beam, gate, vel, wid, power, phi0, data_time = flatten_data(data_dict, extras=True)
-
-    """ Do Empirical Method"""
-    emp_gs_flg = empirical(data_dict)
-    remove_close_range = gate >= 10
-    num_emp = len(emp_gs_flg[remove_close_range])
+    #data_flat, beam, gate, vel, wid, power, phi0, data_time, filter = flatten_data(data_dict, extras=True, remove_close_range=True)
+    #data_flat_unscaled = np.column_stack((beam, gate, vel, wid, power, phi0, data_time))
+    #range_max = data_dict['nrang'][0]
 
     """ Do GMM """
+
     if use_pickle:
-        picklefile = open("./GMMPickles/gmm" + num_clusters.__str__() + '_' + start_time.__str__() + ".pickle", 'r')
-        cluster_membership = pickle.load(picklefile)
+        pfile = open("./GMMPickles/" + picklefile, 'rb')
+        cluster_membership = pickle.load(pfile)
     else:
         estimator = GaussianMixture(n_components=num_clusters,
                                     covariance_type='full', max_iter=500,
@@ -32,9 +37,10 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=6, save=True
         estimator.fit(data_flat)
         cluster_membership = estimator.predict(data_flat)
 
-    if save_pickle:
-        picklefile = open("./GMMPickles/gmm" + num_clusters.__str__() + '_' + start_time.__str__() + ".pickle", 'w')
-        pickle.dump(cluster_membership, picklefile)
+        if save_pickle:
+            picklefile = "./GMMPickles/" + picklefile
+            pfile = open(picklefile, 'wb')
+            pickle.dump(cluster_membership, pfile)
 
     gs_class_gmm = []
     is_class_gmm = []
@@ -42,19 +48,13 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=6, save=True
     median_vels_gmm = np.zeros(num_clusters)
     max_vels_gmm = np.zeros(num_clusters)
     min_vels_gmm = np.zeros(num_clusters)
-    median_wids_gmm = np.zeros(num_clusters)
-    max_wids_gmm = np.zeros(num_clusters)
-    min_wids_gmm = np.zeros(num_clusters)
 
     for i in range(num_clusters):
         median_vels_gmm[i] = np.median(np.abs(vel[cluster_membership == i]))
         max_vels_gmm[i] = np.max(np.abs(vel[cluster_membership == i]))
         min_vels_gmm[i] = np.min(np.abs(vel[cluster_membership == i]))
-        median_wids_gmm[i] = np.median(wid[cluster_membership == i])
-        max_wids_gmm[i] = np.max(wid[cluster_membership == i])
-        min_wids_gmm[i] = np.min(wid[cluster_membership == i])
 
-        if median_vels_gmm[i] > 10:
+        if median_vels_gmm[i] > 15:
             is_class_gmm.append(i)
         else:
             gs_class_gmm.append(i)
@@ -71,48 +71,11 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=6, save=True
     gs_flg_gmm = np.array(gs_flg_gmm)
     clusters = [np.where(cluster_membership == i)[0] for i in range(num_clusters)]
 
-    """ Calculate GMM GS/IS classification """
-    num_true_gmm_gs = len(np.where((gs_flg_gmm[remove_close_range] == 1) & (emp_gs_flg[remove_close_range] == 1))[0])
-    num_true_gmm_is = len(np.where((gs_flg_gmm[remove_close_range] == 0) & (emp_gs_flg[remove_close_range] == 0))[0])
-    accur_gmm = float(num_true_gmm_gs+num_true_gmm_is)/num_emp*100.
-    print('The GS/IS identification accurary of {}-cluster GMM is {:3.2f}%'.format(num_clusters, accur_gmm))
-    print()
 
-    """ Plot Empirical """
     cm = plt.cm.get_cmap('coolwarm')
     alpha = 0.15
     size = 1
     marker = 's'
-    plot_number = 0
-
-    plt.figure(figsize=(15, 6))
-    ax0 = plt.subplot(111)
-    plt.scatter(data_time[emp_gs_flg == 0], gate[emp_gs_flg == 0], s=size, c='red', marker=marker, alpha=alpha,
-                cmap=cm, label='GS')  # plot IS as red
-    plt.scatter(data_time[emp_gs_flg == 1], gate[emp_gs_flg == 1], s=size, c='blue', marker=marker, alpha=alpha,
-                cmap=cm, label='IS')  # plot GS as blue
-    ax0.xaxis.set_major_formatter(DateFormatter('%H:%M'))
-    ax0.set_xlim([start_time, end_time])
-    ax0.set_ylim([0, 75])
-    ax0.set_ylabel('Range gate')
-    ax0.set_title('Empirical Model Results based on Burrell et al. 2015')
-
-    # Print some statistics
-    # First arg is left-right 0-1, Second arg is down-up 0-1
-    # TODO maybe add stats for empirical for GS and IS
-    plt.gcf().text(0.9, 0.8, "empirical", fontsize=12)
-    plt.subplots_adjust(right=0.85, left=0.1)
-
-    blue = mpatches.Patch(color='blue', label='ground scatter')
-    red = mpatches.Patch(color='red', label='ionospheric scatter')
-    plt.legend(handles=[blue, red])
-
-    if save:
-        plt.savefig(str(plot_number) + "_GMM_is_gs_" + start_time.__str__() + ".png")
-        plt.close()
-    else:
-        plt.show()
-
 
     """ Plot Individual Clusters """
     # Do color coding by cluster
@@ -122,29 +85,59 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=6, save=True
     alpha = 1
     # Plot individually
     for i in range(num_clusters):
-        plt.figure(figsize=(15, 6))
-        ax0 = plt.subplot(111)
-        plt.scatter(data_time[clusters[i]], gate[clusters[i]],
+        plt.figure(figsize=(16, 8))
+        ax0 = plt.subplot(211)
+        plt.scatter(time[clusters[i]], gate[clusters[i]],
                     s=size, c=cluster_col[i], marker=marker, alpha=alpha, label=median_vels_gmm[i])
         ax0.xaxis.set_major_formatter(DateFormatter('%H:%M'))
         ax0.set_xlim([start_time, end_time])
-        ax0.set_ylim([0, 75])
+        ax0.set_ylim([0, range_max])
         ax0.set_ylabel('Range gate')
-
         ax0.set_title('Gaussian Mixture Model Cluster' + (i+1).__str__())
+
+        # Make statistics table
+        var = np.var(data_flat_unscaled[clusters[i], :], axis=0)
+        median = np.median(data_flat_unscaled[clusters[i], :], axis=0)
+        mean = np.mean(data_flat_unscaled[clusters[i], :], axis=0)
+        max = np.max(data_flat_unscaled[clusters[i], :], axis=0)
+        min = np.min(data_flat_unscaled[clusters[i], :], axis=0)
+        stats = np.array([var, median, mean, max, min])
+
+        ax1 = plt.subplot(212)
+        ax1.axis('off')
+        stats_table = ax1.table(cellText=stats, rowLabels=['var', 'med', 'mean', 'max', 'min'], colLabels=feature_names, loc='center')
+
         # Print some statistics
-        stats = "Velocity:\n median {:3.1f}\n max {:3.1f}\n min {:3.1f}\n".format(
-            median_vels_gmm[i], max_vels_gmm[i], min_vels_gmm[i])
-        stats += "Spectral width:\n median {:3.1f}\n max {:3.1f}\n min {:3.1f}\n".format(
-            median_wids_gmm[i], max_wids_gmm[i], min_wids_gmm[i])
+        """
+        var = np.var(data_flat_unscaled[clusters[i], :], axis=0)
+        median = np.median(data_flat_unscaled[clusters[i], :], axis=0)
+        mean = np.mean(data_flat_unscaled[clusters[i], :], axis=0)
+        max = np.max(data_flat_unscaled[clusters[i], :], axis=0)
+        min = np.min(data_flat_unscaled[clusters[i], :], axis=0)
+        stats = np.array([var, median, mean, max, min])
+        stats_df = pd.DataFrame(data=stats, columns=feature_names, index=['var', 'med', 'mean', 'max', 'min'])
+        with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+            plottext = stats_df.to_string()
+            print(plottext)
+
+
+        stats = feature_names
+        #stats = "Velocity:\n median {:3.1f}\n max {:3.1f}\n min {:3.1f}\n".format(
+        #    median_vels_gmm[i], max_vels_gmm[i], min_vels_gmm[i])
+        #stats += "Spectral width:\n median {:3.1f}\n max {:3.1f}\n min {:3.1f}\n".format(
+        #    median_wids_gmm[i], max_wids_gmm[i], min_wids_gmm[i])
         # First arg is left-right 0-1, Second arg is down-up 0-1
-        plt.gcf().text(0.9, 0.5, stats, fontsize=10)
-        plt.subplots_adjust(right=0.85, left=0.1)
+        plt.subplots_adjust(left=0.1, bottom=0.5, right=0.9, top=0.9, wspace=0, hspace=0)
+        plt.gcf().text(0.3, 0.2, plottext, fontsize=10)
+        #plt.subplots_adjust(right=0.85, left=0.1)
+        """
+
         if save:
-            plt.savefig((i+1).__str__() + "_GMM_cluster_" + start_time.__str__() + ".png")
+            plt.savefig(radar + " individual cluster " + (i+1).__str__() + ".png")
             plt.close()
         else:
             plt.show()
+            pass
 
 
     """ Plot All Clusters """
@@ -155,22 +148,23 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=6, save=True
     ax0.xaxis.set_major_formatter(DateFormatter('%H:%M'))
     ax0.set_xlim([start_time, end_time])
     ax0.set_ylabel('Range gate')
+    ax0.set_ylim(0, range_max)
     ax0.set_title('Gaussian Mixture Model All Clusters')
-    cluster_labels = [("GS" if mvel < 10 else "IS") for mvel in median_vels_gmm]
+    cluster_labels = [("GS" if mvel < 15 else "IS") for mvel in median_vels_gmm]
     legend_handles = []
     for i in range(num_clusters):
-        plt.scatter(data_time[clusters[i]], gate[clusters[i]], s=size, c=cluster_col[i],
+        plt.scatter(time[clusters[i]], gate[clusters[i]], s=size, c=cluster_col[i],
                     marker=marker, alpha=alpha, label=cluster_labels[i])
         legend_handles.append(mpatches.Patch(color=cluster_col[i], label=cluster_labels[i]))
 
     plt.legend(handles=legend_handles)
     if save:
-        plt.savefig(plot_number.__str__() + "_GMM_all_clusters_" + start_time.__str__() + ".png")
+        plt.savefig("individual clusters all together scatterplot.png")
         plt.close()
     else:
         plt.show()
 
-    """ Plot RTI """
+    """ Plot RTI 
     # plot_rti_mesh(data_dict, clusters, start_time, end_time, cluster_order=list(np.argsort(median_vels_gmm)))
     # def plot_rti_mesh(data_dict, clusters, start_time, end_time, cluster_order=[]):
 
@@ -217,7 +211,7 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=6, save=True
     # Zm = np.ma.masked_where(np.isnan(data[:tcnt][:].T), data[:tcnt][:].T)
     # Set colormap so that masked data (bad) is transparent.
 
-    cmap, norm, bounds = utilities.genCmap(plot_param, [0, len(clusters)],
+    cmap, norm, bounds = util.genCmap(plot_param, [0, len(clusters)],
                                                  colors='lasse',
                                                  lowGray=False)
     cmap.set_bad('w', alpha=0.0)
@@ -233,21 +227,22 @@ def plot_gmm_clusters(data_dict, start_time, end_time, num_clusters=6, save=True
     colormesh = ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
 
     # Draw the colorbar.
-    cb = utilities.drawCB(fig, colormesh, cmap, norm, map_plot=0,
+    cb = util.drawCB(fig, colormesh, cmap, norm, map_plot=0,
                       pos=[pos[0] + pos[2] + .02, pos[1], 0.02, pos[3]])
 
     if save:
-        plt.savefig((num_clusters + 2).__str__() + "_GMM_all_clusters_colormesh_" + start_time.__str__() + ".png")
+        plt.savefig("individual clusters all together colormesh.png")
         plt.close()
     else:
         plt.show()
+    """
 
 
 if __name__ == '__main__':
     skip = []
     start_time = dt.datetime(2018, 2, 7)
-    rad = 'cvw'
-    db_path = "./Data/cvw_GSoC_2018-02-07.db"
+    rad = 'sas'
+    db_path = "./Data/sas_GSoC_2018-02-07.db"
     transform = False
 
     for i in range(1):
@@ -258,7 +253,10 @@ if __name__ == '__main__':
         e = start_time + dt.timedelta(i + 1)
 
         data = read_db(db_path, rad, s, e)
-        if not data:
-            print('No data found')
-            continue
-        plot_gmm_clusters(data, s, e, num_clusters=2, save=False)
+        feature_names = []
+        data_flat, beam, gate, vel, wid, power, phi0, time, filter = flatten_data(data, extras=True, remove_close_range=True)
+        data_flat_unscaled = np.column_stack((beam, gate, vel, wid, power, phi0, time))
+        range_max = data['nrang'][0]
+
+        plot_gmm_clusters(data_flat, data_flat_unscaled, time, gate, vel, feature_names,
+                          range_max, s, e, num_clusters=10, radar=rad)

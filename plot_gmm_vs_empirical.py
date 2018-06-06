@@ -4,11 +4,9 @@ import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 from superdarn_cluster.dbtools import *
 from sklearn.decomposition import PCA
-from sklearn import preprocessing
 
-#TODO rewrite this to use the 'remove_close_range' flag
 
-def gmm_vs_empirical_colormesh(data_dict, start_time, end_time, clusters=6,
+def gmm_vs_empirical_colormesh(data_dict, start_time, end_time, radar='', clusters=6,
                                save=True, gmm_variation='PCA', pca_components=5):
     """
     Compare traditional, empirical, kmeans, and GMM
@@ -27,28 +25,25 @@ def gmm_vs_empirical_colormesh(data_dict, start_time, end_time, clusters=6,
     :param gmm_variation: 'PCA', 'Transformed', 'Variational Bayes'
     :return: creates a graph as PNG, title includes start_time
     """
-    trad_gs_flg = traditional(data_dict)
-    emp_gs_flg = empirical(data_dict)
-    data_flat, beam, gate, vel, wid, power, phi0, time_flat = flatten_data(data_dict, extras=True)
-
-    remove_close_range = gate >= 1
-    time_flat = time_flat[remove_close_range]
-    gate = gate[remove_close_range]
+    num_scatter = data_dict['num_scatter']
+    data_flat, beam, gate, vel, wid, power, phi0, time_flat, filter = flatten_data(data_dict, extras=True, remove_close_range=True)
+    pca_data_flat = np.column_stack((beam, gate, vel, wid, power, phi0, time_flat))
+    pca_data_flat = pca_data_flat - np.mean(pca_data_flat, axis=0)
+    trad_gs_flg = traditional(data_dict)[filter]
 
     # Mark indeterminate scatter in empirical (determined by negative values in the traditional GS flag)
-    emp_gs_flg = emp_gs_flg[remove_close_range]
-    indeterminate = np.where(emp_gs_flg== -1)[0]
-    emp_gs_flg[indeterminate] = -1
+    emp_gs_flg = empirical(data_dict)[filter]
     num_emp = len(emp_gs_flg)
-    percent_indet = float(len(indeterminate))/len(emp_gs_flg)*100
+    num_indeterminate = np.sum(emp_gs_flg == -1)
+    percent_indet = float(num_indeterminate)/len(emp_gs_flg)*100
+    remove_indeterminate = np.where(emp_gs_flg != -1)[0]
 
-    trad_gs_flg = trad_gs_flg[remove_close_range]
+    trad_gs_flg = trad_gs_flg
     num_true_trad_gs = len(np.where((trad_gs_flg == 1) & (emp_gs_flg == 1))[0])
     num_true_trad_is = len(np.where((trad_gs_flg == 0) & (emp_gs_flg == 0))[0])
     accur_tra = float(num_true_trad_gs+num_true_trad_is)/num_emp*100.
 
     gmm_gs_flg = gmm(data_flat, vel, wid, num_clusters=clusters)
-    gmm_gs_flg = gmm_gs_flg[remove_close_range]
     num_true_gmm_gs = len(np.where((gmm_gs_flg == 1) & (emp_gs_flg == 1))[0]) #Assuming the GS is the cluster with minimum median velocity
     num_true_gmm_is = len(np.where((gmm_gs_flg == 0) & (emp_gs_flg == 0))[0])
     accur_gmm = float(num_true_gmm_gs+num_true_gmm_is)/num_emp*100.
@@ -62,15 +57,14 @@ def gmm_vs_empirical_colormesh(data_dict, start_time, end_time, clusters=6,
         pca.fit(data_flat)
         # Data_flat is already normalized to mean=0 standard dev=1, so we don't need to preprocess for PCA
         pca_data_flat = pca.transform(data_flat)
-        tran_gmm_gs_flg = gmm(pca_data_flat, vel, wid)
+        tran_gmm_gs_flg = gmm(pca_data_flat, vel, wid, num_clusters=clusters)
     elif gmm_variation == 'Variational Bayes':
         #TODO
         return
     else:
-        print('Bad gmm_variation flag '+ gmm_variation)
+        print('Bad gmm_variation flag ' + gmm_variation)
         return
 
-    tran_gmm_gs_flg = tran_gmm_gs_flg[remove_close_range]
     num_true_tran_gmm_gs = len(np.where((tran_gmm_gs_flg == 1) & (emp_gs_flg == 1))[0]) #Assuming the GS is the cluster with minimum median velocity
     num_true_tran_gmm_is = len(np.where((tran_gmm_gs_flg == 0) & (emp_gs_flg == 0))[0])
     accur_tran_gmm = float(num_true_tran_gmm_gs+num_true_tran_gmm_is)/num_emp*100.
@@ -81,8 +75,8 @@ def gmm_vs_empirical_colormesh(data_dict, start_time, end_time, clusters=6,
     beams = np.unique(beam)
     time = np.array(time)
     for b in beams:
-        scatter_flat = b == beam[remove_close_range]
-        fig = plt.figure(figsize=(20,8))
+        scatter_flat = b == beam
+        fig = plt.figure(figsize=(16, 8))
         ax1 = plt.subplot(411)
         plot_is_gs_colormesh(ax1, time, time_flat[scatter_flat], gate[scatter_flat], emp_gs_flg[scatter_flat],
                              num_range_gates, plot_indeterminate=True)
@@ -111,7 +105,7 @@ def gmm_vs_empirical_colormesh(data_dict, start_time, end_time, clusters=6,
         fig.tight_layout()
 
         if save:
-            plt.savefig("gmm vs empirical beam" + str(int(b)) + ".png")
+            plt.savefig(radar + " gmm vs empirical beam" + str(int(b)) + ".png")
             plt.close()
         else:
             plt.show()
@@ -122,8 +116,8 @@ if __name__ == '__main__':
 
     skip = []
     start_time = dt.datetime(2018, 2, 7)
-    rad = 'cvw'
-    db_path = "./Data/cvw_GSoC_2018-02-07.db"
+    rad = 'sas'
+    db_path = "./Data/sas_GSoC_2018-02-07.db"
 
     for i in range(1):
         if i in skip:
@@ -132,4 +126,4 @@ if __name__ == '__main__':
         s = start_time + dt.timedelta(i)
         e = start_time + dt.timedelta(i + 1)
         data = read_db(db_path, rad, s, e)
-        gmm_vs_empirical_colormesh(data, s, e, clusters=10, save=True, pca_components=7)
+        gmm_vs_empirical_colormesh(data, s, e, radar=rad, clusters=10, save=True, pca_components=5)

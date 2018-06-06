@@ -137,4 +137,4 @@ if __name__ == '__main__':
         e = start_time + dt.timedelta(i + 1)
 
         data = read_db(db_path, rad, s, e)
-        plot_feature_pairs_by_cluster(data, num_clusters=10)
+        plot_feature_pairs_by_cluster(data, num_clusters=6, gmm_variation='PCA')

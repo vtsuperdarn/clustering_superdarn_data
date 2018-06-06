@@ -42,16 +42,15 @@ def gmm(data_flat, vel, wid,
     pickle_dir = "./GMMPickles/"
     if use_pickle != "":
         use_picklefile = pickle_dir + use_pickle
-        cluster_labels = pickle.load(use_picklefile)
+        cluster_labels = pickle.load(open(use_picklefile, 'rb'))
 
     else:
         # source
         # http://scikit-learn.org/stable/auto_examples/mixture/plot_gmm_covariances.html#sphx-glr-auto-examples-mixture-plot-gmm-covariances-py
-
         if not bayes:
             estimator = GaussianMixture(n_components=num_clusters,
                                         covariance_type='full', max_iter=500,
-                                        random_state=0, n_init=5, init_params = 'kmeans')
+                                        random_state=0, n_init=5, init_params='kmeans')
         elif bayes:
             # Params to fine tune:
             # Weight concentration prior - determines number of clusters chosen, 0.1 1 100 1000 no big difference.
@@ -89,22 +88,40 @@ def gmm(data_flat, vel, wid,
         cluster_labels = estimator.predict(data_flat)
 
         if make_pickle != "":
-            make_picklefile = pickle_dir + use_pickle
-            pickle.dump(cluster_labels, make_picklefile)
+            make_picklefile = pickle_dir + make_pickle
+            pickle.dump(cluster_labels, open(make_picklefile, 'wb'))
 
     gs_class_gmm = []
     is_class_gmm = []
     median_vels_gmm = np.zeros(num_clusters)
     median_wids_gmm = np.zeros(num_clusters)
     for i in range(num_clusters):
-        median_vels_gmm[i] = np.median(np.abs(vel[cluster_labels == i]))
-        median_wids_gmm[i] = np.median(wid[cluster_labels == i])
+        scatter = cluster_labels == i
+        median_vels_gmm[i] = np.median(np.abs(vel[scatter]))
+        median_wids_gmm[i] = np.median(wid[scatter])
         #print median_vels_gmm[i]
-        if median_vels_gmm[i] > vel_threshold:
+        # Traditional style
+        #GS = np.abs(median_vels_gmm[i]) < (15 + 0.139*np.abs(median_wids_gmm[i]) - 0.00133*(median_wids_gmm[i]**2))
+        #print('Median vel', np.abs(median_vels_gmm[i]))
+        #print('Comparison', 15 + 0.139 * np.abs(median_wids_gmm[i]) - 0.00133 * (median_wids_gmm[i] ** 2))
+        GS = np.abs(median_vels_gmm[i]) < 15
+
+        """
+        # AJ style
+        hi_lo_ratio = np.sum(vel > 15) / float(np.sum(vel < 15))
+        time = data_flat[:,-1]
+        #TODO make this hours
+        duration_hr = int(np.max(time[cluster_labels == i]) - np.min(time[cluster_labels == i]) // 3600)
+        IS = duration_hr < 14 and ((duration_hr > 3 and hi_lo_ratio > 0.2)  \
+             or (duration_hr > 2 and hi_lo_ratio > 0.33) or (duration_hr > 1 and duration_hr > 0.475))
+        GS = not IS
+        """
+
+        if not GS:
             is_class_gmm.append(i)
         else:
             gs_class_gmm.append(i)
-
+    print()
     gs_flg_gmm = []
     for i in cluster_labels:
         if i in gs_class_gmm:
