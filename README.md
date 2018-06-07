@@ -22,6 +22,18 @@ Install requirements using Pip (if python2 is your default, make sure to use pip
 
 `pip install -r requirements.txt`
 
+If this does not work (happens on Ubuntu < 16) you can manually install dependencies:
+
+`pip install sklearn`
+
+`pip install matplotlib`
+
+`pip install scipy`
+
+`pip install numpy`
+
+`pip install pandas`
+
 Now you can run the files (again, use python3 here if python2 is your default):
 
 `python plot_feature_selection.py`
