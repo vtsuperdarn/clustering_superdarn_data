@@ -343,3 +343,220 @@ def plot_is_gs_colormesh(ax, time, time_flat, gate, gs_flg, num_range_gates, plo
     ax.set_xlim([time[0], time[-1]])
     ax.set_ylabel('Range gate')
     ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
+
+
+def plot_clusters(cluster_membership, data_for_stats, time, gate, vel, feature_names_for_stats, range_max,
+                      start_time, end_time, radar='', save=True, base_path=''):
+    """
+    :param data_dict:
+    :param start_time:
+    :param end_time:
+    :return:
+    """
+    #data_flat, beam, gate, vel, wid, power, phi0, data_time, filter = flatten_data(data_dict, extras=True, remove_close_range=True)
+    #data_flat_unscaled = np.column_stack((beam, gate, vel, wid, power, phi0, data_time))
+    #range_max = data_dict['nrang'][0]
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from matplotlib.dates import DateFormatter
+    import matplotlib.patches as mpatches
+
+    num_clusters = len(np.unique(cluster_membership))
+
+    # Deal with noise flag. Noise will not be plotted.
+    if -1 in np.unique(cluster_membership):
+        num_clusters = num_clusters - 1
+
+    gs_class_gmm = []
+    is_class_gmm = []
+
+    median_vels_gmm = np.zeros(num_clusters)
+    max_vels_gmm = np.zeros(num_clusters)
+    min_vels_gmm = np.zeros(num_clusters)
+
+    for i in range(num_clusters):
+        median_vels_gmm[i] = np.median(np.abs(vel[cluster_membership == i]))
+        max_vels_gmm[i] = np.max(np.abs(vel[cluster_membership == i]))
+        min_vels_gmm[i] = np.min(np.abs(vel[cluster_membership == i]))
+
+        if median_vels_gmm[i] > 15:
+            is_class_gmm.append(i)
+        else:
+            gs_class_gmm.append(i)
+
+    cluster_membership = cluster_membership
+
+    gs_flg_gmm = []
+    for i in cluster_membership:
+        if i in gs_class_gmm:
+            gs_flg_gmm.append(1)
+        elif i in is_class_gmm:
+            gs_flg_gmm.append(0)
+
+    gs_flg_gmm = np.array(gs_flg_gmm)
+    clusters = [np.where(cluster_membership == i)[0] for i in range(num_clusters)]
+
+    cm = plt.cm.get_cmap('coolwarm')
+    alpha = 0.15
+    size = 1
+    marker = 's'
+
+    """ Plot Individual Clusters """
+    # Do color coding by cluster
+    # TODO https://stackoverflow.com/questions/19064772/visualization-of-scatter-plots-with-overlapping-points-in-matplotlib
+    #cluster_col = plt.cm.viridis(np.linspace(0, 1, num_clusters))
+    cluster_col = plt.cm.plasma(np.linspace(0, 1, num_clusters))
+    alpha = 1
+    # Plot individually
+    for i in range(num_clusters):
+        plt.figure(figsize=(16, 8))
+        ax0 = plt.subplot(211)
+        plt.scatter(time[clusters[i]], gate[clusters[i]],
+                    s=size, c=cluster_col[i], marker=marker, alpha=alpha, label=median_vels_gmm[i])
+        ax0.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+        ax0.set_xlim([start_time, end_time])
+        ax0.set_ylim([0, range_max])
+        ax0.set_ylabel('Range gate')
+        ax0.set_title('Cluster' + (i+1).__str__())
+
+        # Make statistics table
+        var = np.var(data_for_stats[clusters[i], :], axis=0)
+        median = np.median(data_for_stats[clusters[i], :], axis=0)
+        mean = np.mean(data_for_stats[clusters[i], :], axis=0)
+        max = np.max(data_for_stats[clusters[i], :], axis=0)
+        min = np.min(data_for_stats[clusters[i], :], axis=0)
+        stats = np.array([var, median, mean, max, min])
+
+        ax1 = plt.subplot(212)
+        ax1.axis('off')
+        ax1.table(cellText=stats, rowLabels=['var', 'med', 'mean', 'max', 'min'], colLabels=feature_names_for_stats, loc='center')
+
+        # Print some statistics
+
+        if save:
+            plt.savefig(base_path + radar + " individual cluster " + (i + 1).__str__() + ".png")
+            plt.close()
+        else:
+            plt.show()
+            pass
+
+
+    """ Plot All Clusters """
+    alpha = 0.15
+    plot_number = num_clusters + 1
+    plt.figure(figsize=(15, 6))
+    ax0 = plt.subplot(111)
+    ax0.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+    ax0.set_xlim([start_time, end_time])
+    ax0.set_ylabel('Range gate')
+    ax0.set_ylim(0, range_max)
+    ax0.set_title('Gaussian Mixture Model All Clusters')
+    cluster_labels = [("GS" if mvel < 15 else "IS") for mvel in median_vels_gmm]
+    legend_handles = []
+    for i in range(num_clusters):
+        plt.scatter(time[clusters[i]], gate[clusters[i]], s=size, c=cluster_col[i],
+                    marker=marker, alpha=alpha, label=cluster_labels[i])
+        legend_handles.append(mpatches.Patch(color=cluster_col[i], label=cluster_labels[i]))
+
+    plt.legend(handles=legend_handles)
+    if save:
+        plt.savefig(base_path + "individual clusters all together scatterplot.png")
+        plt.close()
+    else:
+        plt.show()
+
+
+def make_ellipses(model, ax, n_cluster, f1, f2):
+    """
+    Plot an ellipse representing one cluster in GMM.
+
+    Note: This ellipse will be centered at the mean, and its size represents the VARIANCE,
+    not the STANDARD DEVIATION. Variance is taken from the diagonal of the covariance matrix.
+
+    :param model: a GMM model trained on some data
+    :param ax: the subplot axis to draw on
+    :param colors: a list of colors (length num_clusters)
+    :param n_cluster: integer cluster index, in range [0, num_clousters]
+    :param f1: feature 1 index, in range [0, num_features]
+    :param f2: feature 2 index, in range [0, num_features]
+    """
+    import numpy as np
+    import matplotlib as mpl
+    if model.covariance_type == 'full':
+        covariances = model.covariances_[n_cluster][[f1, f2], :][:, [f1, f2]]
+    elif model.covariance_type == 'tied':
+        covariances = model.covariances_[[f1, f2], :][:, [f1, f2]]
+    # TODO this may or may not work
+    elif model.covariance_type == 'diag':
+        covariances = np.diag(model.covariances_[n_cluster][[f1, f2]])
+    # TODO will this work...? do we need it?
+    elif model.covariance_type == 'spherical':
+        covariances = []  # np.eye(model.means_.shape[1]) * model.covariances_[n_cluster]
+
+    v, w = np.linalg.eigh(covariances)
+    u = w[0] / np.linalg.norm(w[0])
+    angle = np.arctan2(u[1], u[0])
+    angle = 180 * angle / np.pi  # convert to degrees
+    v = 2. * np.sqrt(2.) * np.sqrt(v)
+    means = model.means_[n_cluster, [f1, f2]]
+
+    ell = mpl.patches.Ellipse(means, v[0], v[1],
+                              180 + angle, color='black')
+    ell.set_clip_box(ax.bbox)
+    ell.set_alpha(0.5)
+    ax.add_artist(ell)
+
+def plot_feature_pairs_by_cluster(data_flat, estimator, feature_names, save=True, base_path = ''):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from math import ceil
+    """
+    gate = gate ** 2      # RG = RG^2
+    wid = np.sign(wid) * np.log(np.abs(wid))
+    vel = np.sign(vel) * np.log(np.abs(vel))
+    power = np.abs(power) ** 1.5
+    """
+
+
+    #gs_flg_gmm, clusters, median_vels_gmm, estimator = gmm(data_flat, vel, wid, num_clusters=num_clusters, cluster_identities=True)
+
+    num_features = len(feature_names)
+    cluster_ids = estimator.predict(data_flat)
+    #velocity_ordering = np.argsort(median_vels_gmm)
+    #clusters = [clusters[i] for i in velocity_ordering]
+    #median_vels_gmm = [median_vels_gmm[i] for i in velocity_ordering]
+    #cluster_labels = [("GS" if mvel < 15 else "IS") for mvel in median_vels_gmm]
+    num_clusters = len(np.unique(cluster_ids))
+    colors = plt.cm.plasma(np.linspace(0, 1, num_clusters))
+
+    for f1 in range(num_features):
+        for f2 in range(f1+1, num_features):
+            plt.figure(figsize=(20, 12))
+            plot_name = feature_names[f1] + " vs " + feature_names[f2]
+
+            for c in range(num_clusters):
+                #print('===========================')
+                #print('cluster', c, 'features', f1, f2)
+                #print('===========================')
+                #print(feature_names[f1], 'mean', np.mean(data_flat[cluster_ids == c, f1]), 'var', np.var(data_flat[cluster_ids == c, f1]))
+                #print(feature_names[f2], 'mean', np.mean(data_flat[cluster_ids == c, f2]), 'var', np.var(data_flat[cluster_ids == c, f2]))
+                #print()
+
+                ax = plt.subplot(2, ceil(num_clusters / 2.0), c + 1)
+                ax.scatter(data_flat[cluster_ids == c, f1], data_flat[cluster_ids == c, f2],
+                           alpha=0.1, marker='x', color=colors[c])
+
+                make_ellipses(estimator, ax, c, f1, f2)
+
+                #plt.legend()
+
+                plt.xlabel(feature_names[f1])
+                plt.ylabel((feature_names[f2]))
+                plt.title(plot_name)
+
+            if save:
+                plt.savefig(base_path + plot_name + '.png')
+                plt.close()
+            else:
+                plt.show()

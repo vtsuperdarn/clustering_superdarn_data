@@ -27,7 +27,8 @@ def gmm_vs_empirical_colormesh(data_dict, start_time, end_time, radar='', cluste
     """
     num_scatter = data_dict['num_scatter']
     data_flat, beam, gate, vel, wid, power, phi0, time_flat, filter = flatten_data(data_dict, extras=True, remove_close_range=True)
-    pca_data_flat = np.column_stack((beam, gate, vel, wid, power, phi0, time_flat))
+    #pca_data_flat = np.column_stack((beam, gate, vel, wid, power, phi0, time_flat))
+    pca_data_flat = np.column_stack((vel, wid, phi0))
     pca_data_flat = pca_data_flat - np.mean(pca_data_flat, axis=0)
     trad_gs_flg = traditional(data_dict)[filter]
 
@@ -119,6 +120,9 @@ if __name__ == '__main__':
     rad = 'sas'
     db_path = "./Data/sas_GSoC_2018-02-07.db"
 
+   # start_time = dt.datetime(2018, 2, 7, 12)
+    #end_time = dt.datetime(2018, 2, 7, 14)
+
     for i in range(1):
         if i in skip:
             continue
@@ -126,4 +130,4 @@ if __name__ == '__main__':
         s = start_time + dt.timedelta(i)
         e = start_time + dt.timedelta(i + 1)
         data = read_db(db_path, rad, s, e)
-        gmm_vs_empirical_colormesh(data, s, e, radar=rad, clusters=10, save=True, pca_components=5)
+        gmm_vs_empirical_colormesh(data, s, e, radar=rad, clusters=10, save=True, pca_components=2)

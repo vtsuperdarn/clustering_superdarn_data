@@ -71,7 +71,6 @@ def plot_gmm_clusters(data_flat, data_flat_unscaled, time, gate, vel, feature_na
     gs_flg_gmm = np.array(gs_flg_gmm)
     clusters = [np.where(cluster_membership == i)[0] for i in range(num_clusters)]
 
-
     cm = plt.cm.get_cmap('coolwarm')
     alpha = 0.15
     size = 1
@@ -253,9 +252,9 @@ if __name__ == '__main__':
         e = start_time + dt.timedelta(i + 1)
 
         data = read_db(db_path, rad, s, e)
-        feature_names = []
+        feature_names = ['beam','gate','vel','wid','power','phi0','time']
         data_flat, beam, gate, vel, wid, power, phi0, time, filter = flatten_data(data, extras=True, remove_close_range=True)
-        data_flat_unscaled = np.column_stack((beam, gate, vel, wid, power, phi0, time))
+        data_flat_unscaled = np.column_stack((beam, gate, np.abs(vel), np.abs(wid), power, phi0, time))
         range_max = data['nrang'][0]
 
         plot_gmm_clusters(data_flat, data_flat_unscaled, time, gate, vel, feature_names,

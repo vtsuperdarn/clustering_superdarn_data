@@ -115,8 +115,9 @@ def flatten_data(data_dict, extras=False, scale=True, center=False, transform=Fa
         data = np.column_stack((beam, gate, vel, wid, power, phi0, time))
 
     else:
-        data = np.column_stack((beam_scaled, gate_scaled, vel_scaled, wid_scaled,
-                                power_scaled, phi0_scaled, time_scaled))
+        #data = np.column_stack((beam_scaled, gate_scaled, vel_scaled, wid_scaled,
+        #                        power_scaled, phi0_scaled, time_scaled))
+        data = np.column_stack((vel_scaled, wid_scaled, phi0_scaled))
 
     # feature names= ['beam', 'gate', 'vel', 'wid', 'power', 'phi0', 'time']
 
@@ -128,7 +129,7 @@ def flatten_data(data_dict, extras=False, scale=True, center=False, transform=Fa
     return data, time
 
 def flatten_data_11_features(data_dict, scaled=False, remove_close_range=False):
-    gate = np.hstack(data_dict['gate'])
+    gate = np.hstack(data_dict['gate']).astype(float)
     vel = np.hstack(data_dict['velocity'])
     wid = np.hstack(data_dict['width'])
     power = np.hstack(data_dict['power'])

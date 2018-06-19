@@ -29,7 +29,9 @@ def empirical(data_dict):
     """
     return np.hstack(data_dict['gsflg'])
 
+
 def traditional(data_dict):
+    # gs_flg = vel < (30.0 - (1.0 / 3.0) * wid)
     return np.abs(np.hstack(data_dict['gsflg']))
 
 
@@ -98,13 +100,17 @@ def gmm(data_flat, vel, wid,
     for i in range(num_clusters):
         scatter = cluster_labels == i
         median_vels_gmm[i] = np.median(np.abs(vel[scatter]))
-        median_wids_gmm[i] = np.median(wid[scatter])
-        #print median_vels_gmm[i]
+        median_wids_gmm[i] = np.median(np.abs(wid[scatter]))
         # Traditional style
-        #GS = np.abs(median_vels_gmm[i]) < (15 + 0.139*np.abs(median_wids_gmm[i]) - 0.00133*(median_wids_gmm[i]**2))
-        #print('Median vel', np.abs(median_vels_gmm[i]))
-        #print('Comparison', 15 + 0.139 * np.abs(median_wids_gmm[i]) - 0.00133 * (median_wids_gmm[i] ** 2))
-        GS = np.abs(median_vels_gmm[i]) < 15
+        absvel = median_vels_gmm[i]
+        abswid = median_wids_gmm[i]
+        GS = absvel < 30 - (1.0 / 3.0) * abswid
+        # GS = absvel < (33.1 + 0.139 * abswid - 0.00133 * (abswid ** 2))
+        # print('Median vel', np.abs(median_vels_gmm[i]))
+        # print('Comparison', 15 + 0.139 * np.abs(median_wids_gmm[i]) - 0.00133 * (median_wids_gmm[i] ** 2))
+        # GS = absvel < 15
+
+        # print(i, absvel, abswid, 30 - (1.0 / 3.0) * abswid, (33.1 + 0.139 * abswid - 0.00133 * (abswid ** 2)))
 
         """
         # AJ style
