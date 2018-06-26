@@ -131,6 +131,19 @@ class GridBasedDBSCAN():
         return classifications
 
 
+def test_dbscan():
+    import matplotlib.pyplot as plt
+    m = (np.random.normal(size=(2, 100)) * 10).astype(int)
+    eps = [2, 5]
+    min_points = 5
+    labels = np.array(dbscan(m, eps, min_points))
+    clusters = np.unique(labels)
+    colors = plt.cm.plasma(np.linspace(0, 1, len(clusters)))
+    print('clusters: ', clusters)
+    for i, label in enumerate(clusters):
+        plt.scatter(m[0, labels == label], m[1, labels == label], color=colors[i])
+    plt.show()
+
 if __name__ == "__main__":
     import numpy as np
     from superdarn_cluster.dbtools import flatten_data_11_features, read_db
@@ -142,7 +155,7 @@ if __name__ == "__main__":
     db_path = "../Data/sas_GSoC_2018-02-07.db"
     b = 0
     data_dict = read_db(db_path, rad, start_time, end_time)
-    data_flat_unscaled = flatten_data_11_features(data_dict, remove_close_range=False)
+    data_flat_unscaled = flatten_data_11_features(data_dict, remove_close_range=True)
 
     gate = data_flat_unscaled[:, 1]
     beam = data_flat_unscaled[:, 0]
@@ -161,6 +174,7 @@ if __name__ == "__main__":
     #print(data.shape)
     print(data[:, :20])
 
+    #NOTE - these params need to change if you set remove_close_range=False. Takes a while to determine since each run is slow.
     gdb = GridBasedDBSCAN(gate_eps=2.0, beam_eps=3.0, time_eps=30, min_pts=20, nrang=75, nbeam=16, dr=45, dtheta=3.3, r_init=180)
     labels = gdb.fit(data)
     clusters = np.unique(labels)
@@ -169,12 +183,7 @@ if __name__ == "__main__":
     colors = plt.cm.plasma(np.linspace(0, 1, len(clusters)))
     print('clusters: ', clusters)
     for i, label in enumerate(clusters):
-        if label == -1:
-            color = [0, 0, 0, 1]        # black for noise
-        else:
-            color = colors[i]
-        plt.scatter(data[2, labels == label], data[0, labels == label], color=color)
+        plt.scatter(data[2, labels == label], data[0, labels == label], color=colors[i])
     plt.show()
-
 
 
