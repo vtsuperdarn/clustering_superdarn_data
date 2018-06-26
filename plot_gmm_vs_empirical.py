@@ -75,6 +75,8 @@ def gmm_vs_empirical_colormesh(data_dict, start_time, end_time, radar='', cluste
 
     beams = np.unique(beam)
     time = np.array(time)
+    from matplotlib.dates import date2num
+    time = date2num(time)
     for b in beams:
         scatter_flat = b == beam
         fig = plt.figure(figsize=(16, 8))
@@ -130,4 +132,4 @@ if __name__ == '__main__':
         s = start_time + dt.timedelta(i)
         e = start_time + dt.timedelta(i + 1)
         data = read_db(db_path, rad, s, e)
-        gmm_vs_empirical_colormesh(data, s, e, radar=rad, clusters=10, save=True, pca_components=2)
+        gmm_vs_empirical_colormesh(data, s, e, radar=rad, clusters=3, save=True, pca_components=2)

@@ -54,7 +54,7 @@ def read_db(db_path, rad, start_time, end_time, beam='*'):
     return data_dict
 
 #TODO rewrite this function it is getting ugly with all the scaling and filtering
-def flatten_data(data_dict, extras=False, scale=True, center=False, transform=False, remove_close_range=False):
+def flatten_data(data_dict, extras=False, scale=True, transform=False, remove_close_range=False):
     """
     Note: This will not work for scale = True and transform = True.
 
@@ -115,9 +115,9 @@ def flatten_data(data_dict, extras=False, scale=True, center=False, transform=Fa
         data = np.column_stack((beam, gate, vel, wid, power, phi0, time))
 
     else:
-        #data = np.column_stack((beam_scaled, gate_scaled, vel_scaled, wid_scaled,
-        #                        power_scaled, phi0_scaled, time_scaled))
-        data = np.column_stack((vel_scaled, wid_scaled, phi0_scaled))
+        data = np.column_stack((beam_scaled, gate_scaled, vel_scaled, wid_scaled,
+                                power_scaled, phi0_scaled, time_scaled))
+        #data = np.column_stack((vel_scaled, wid_scaled, phi0_scaled))
 
     # feature names= ['beam', 'gate', 'vel', 'wid', 'power', 'phi0', 'time']
 

@@ -58,7 +58,7 @@ def make_ellipses(model, ax, colors, n_cluster, f1, f2):
     ax.add_artist(ell)
 
 
-def plot_feature_pairs_by_cluster(data_dict, num_clusters=6, save=True, gmm_variation=None):
+def plot_feature_pairs_by_cluster(data_dict, num_clusters=6, save=True, gmm_variation=None, num_components=5):
 
     data_flat, beam, gate, vel, wid, power, phi0, data_time = flatten_data(data_dict,  extras=True)
 
@@ -71,7 +71,7 @@ def plot_feature_pairs_by_cluster(data_dict, num_clusters=6, save=True, gmm_vari
 
     if gmm_variation == 'PCA':
         # Do PCA
-        pca = PCA(n_components=7)
+        pca = PCA(n_components=num_components)
         pca.fit(data_flat)
         data_flat = pca.transform(data_flat)
 
@@ -80,7 +80,8 @@ def plot_feature_pairs_by_cluster(data_dict, num_clusters=6, save=True, gmm_vari
 
     else:
         num_features = data_flat.shape[1]
-        feature_names = ["beam", "gate", "vel", "wid", "power", "phi0", "time"]
+        #feature_names = ["beam", "gate", "vel", "wid", "power", "phi0", "time"]
+        feature_names = ["vel", 'wid', 'phi0']
 
     gs_flg_gmm, clusters, median_vels_gmm, estimator = gmm(data_flat, vel, wid, num_clusters=num_clusters, cluster_identities=True)
     cluster_ids = estimator.predict(data_flat)
@@ -127,8 +128,8 @@ if __name__ == '__main__':
     # Choose your date(s) and database
     skip = []
     start_time = dt.datetime(2018, 2, 7)
-    db_path = "./Data/cvw_GSoC_2018-02-07.db"
-    rad = "cvw"
+    db_path = "./Data/sas_GSoC_2018-02-07.db"
+    rad = "sas"
 
     for i in range(1):
         if i in skip:
@@ -137,4 +138,4 @@ if __name__ == '__main__':
         e = start_time + dt.timedelta(i + 1)
 
         data = read_db(db_path, rad, s, e)
-        plot_feature_pairs_by_cluster(data, num_clusters=6, gmm_variation='PCA')
+        plot_feature_pairs_by_cluster(data, num_clusters=6)
