@@ -12,7 +12,7 @@ from superdarn_cluster.dbtools import read_db
 from math import ceil
 from sklearn.decomposition import PCA
 
-# TODO add some statistical information to the graphs - cluster mean/var
+# TODO SLATE FOR REMOVAL - these functions now live in utilities
 
 def make_ellipses(model, ax, colors, n_cluster, f1, f2):
     """
