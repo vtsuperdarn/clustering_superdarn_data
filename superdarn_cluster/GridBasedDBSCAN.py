@@ -6,6 +6,7 @@
 
 import numpy as np
 import math
+from matplotlib.dates import date2num
 
 UNCLASSIFIED = False
 NOISE = -1
@@ -130,7 +131,6 @@ class GridBasedDBSCAN():
                     cluster_id = cluster_id + 1
         return classifications
 
-
 def test_dbscan():
     import matplotlib.pyplot as plt
     m = (np.random.normal(size=(2, 100)) * 10).astype(int)
@@ -144,12 +144,13 @@ def test_dbscan():
         plt.scatter(m[0, labels == label], m[1, labels == label], color=colors[i])
     plt.show()
 
+
 if __name__ == "__main__":
     import numpy as np
     from superdarn_cluster.dbtools import flatten_data_11_features, read_db
     import datetime as dt
 
-    start_time = dt.datetime(2018, 2, 7, 14)
+    start_time = dt.datetime(2018, 2, 7, 12)
     end_time = dt.datetime(2018, 2, 7, 16)
     rad = 'sas'
     db_path = "../Data/sas_GSoC_2018-02-07.db"
@@ -159,7 +160,6 @@ if __name__ == "__main__":
 
     gate = data_flat_unscaled[:, 1]
     beam = data_flat_unscaled[:, 0]
-
     time = data_flat_unscaled[:, 6]
     scaled_time = (time - time[0]) #(time - np.floor(time)) * 24 * 60 * 60
     uniq_time = np.sort(np.unique(scaled_time))
@@ -181,9 +181,38 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
     colors = plt.cm.plasma(np.linspace(0, 1, len(clusters)))
+    colors[0] = [0, 0, 0, 1] #plot noise black
+    plt.figure(figsize=(16,8))
     print('clusters: ', clusters)
     for i, label in enumerate(clusters):
         plt.scatter(data[2, labels == label], data[0, labels == label], color=colors[i])
-    plt.show()
+    plt.savefig("grid-based DBSCAN RTI.png")
+    plt.close()
+
+    from superdarn_cluster.FanPlot import FanPlot
+
+    # For each unique time unit
+    times_unique_dt = data_dict['datetime']
+    times_unique_num = [date2num(t) for t in data_dict['datetime']]
+    labels = np.array(labels)
+    print(len(times_unique_dt))
+
+    scan = 0
+    # TODO debug this, make sure this will work in various circumstances, like where there is no data
+    for i in range(0, len(times_unique_dt), 16):
+        fanplot = FanPlot()
+        # Will throw an error if the time period cuts off before finishing a scan (usually the even numbers are pretty close)
+        scan_mask = ((time >= times_unique_num[i]).astype(int) & (time <= times_unique_num[i + 15]).astype(int)).astype(bool)
+        data_i = data[:, scan_mask]
+
+        for c, label in enumerate(clusters):
+            label_mask = labels[scan_mask] == label
+            fanplot.plot(data_i[1, label_mask], data_i[0, label_mask], color=colors[c])
+
+        #plt.show()
+        scan += 1
+        plt.title(str(times_unique_dt[i]))
+        plt.savefig(str(scan) + " grid-based DBSCAN fanplot.png")
+        plt.close()
 
 

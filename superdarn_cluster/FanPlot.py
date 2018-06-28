@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches
 
+#TODO slate to add to utilities
+
 class FanPlot:
 
     def __init__(self, nrange=75, nbeam=16, r0=180, dr=45, dtheta=3.24):
@@ -55,4 +57,7 @@ class FanPlot:
 if __name__ == '__main__':
     fanplot = FanPlot()
     fanplot.plot([4, 5, 6], [70, 69, 71], "red")
+    fanplot.plot([7, 8, 9], [70, 69, 71], "blue")
+    fanplot.plot([7, 8, 9], [30, 30, 30], "yellow")
+
     plt.show()
