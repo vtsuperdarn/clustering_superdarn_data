@@ -36,21 +36,26 @@ class GridBasedDBSCAN():
         if not time_neighbor:
             return False
 
-
         # TODO change this to use class variables
-        w = space_eps[0]
-        h = space_eps[1]
-        t = self.time_eps
+        h = space_eps[0]
+        w = space_eps[1]
+
+        # TODO verify width is bigger for long range
+
         # Search in an ellipsoid with the 3 epsilon values (slower, performs similar to the filter so far)
+        # t = self.time_eps
         # in_ellipse = ((q[0] - p[0])**2 / w**2 + (q[1] - p[1])**2 / h**2 + (q[2] - p[2])**2 / t**2) <= 1
+
         # Search in an ellipse with widths defined by the 2 epsilon values
-        in_ellipse = ((q[0] - p[0])**2 / w**2 + (q[1] - p[1])**2 / h**2) <= 1
+        in_ellipse = ((q[0] - p[0])**2 / h**2 + (q[1] - p[1])**2 / w**2) <= 1
+
         return in_ellipse
 
 
     def _region_query(self, m, point_id, eps):
         n_points = m.shape[1]
         seeds = []
+
         for i in range(0, n_points):
             if self._eps_neighborhood(m[:, point_id], m[:, i], eps):
                 seeds.append(i)
@@ -124,7 +129,7 @@ class GridBasedDBSCAN():
             point = m[:, point_id]
             i, j = int(point[0]), int(point[1]) # range gate, beam
             wid = g / (f * self.C[i, j])
-            eps = (wid, self.gate_eps)
+            eps = (self.gate_eps, wid)
             # Adaptively change one of the epsilon values and the min_points parameter using the C matrix
             if classifications[point_id] == UNCLASSIFIED:
                 if self._expand_cluster(m, classifications, point_id, cluster_id, eps, self.min_pts):
@@ -156,7 +161,7 @@ if __name__ == "__main__":
     db_path = "../Data/sas_GSoC_2018-02-07.db"
     b = 0
     data_dict = read_db(db_path, rad, start_time, end_time)
-    data_flat_unscaled = flatten_data_11_features(data_dict, remove_close_range=True)
+    data_flat_unscaled = flatten_data_11_features(data_dict, remove_close_range=False)
 
     gate = data_flat_unscaled[:, 1]
     beam = data_flat_unscaled[:, 0]
@@ -167,15 +172,10 @@ if __name__ == "__main__":
     dt = np.min((shifted_time - uniq_time)[:-1])
     integer_time = scaled_time / (dt)
 
-
     data = np.column_stack((gate, beam, integer_time)).T
-    #print(data.shape)
-    #data = np.unique(data, axis=1)
-    #print(data.shape)
-    print(data[:, :20])
 
     #NOTE - these params need to change if you set remove_close_range=False. Takes a while to determine since each run is slow.
-    gdb = GridBasedDBSCAN(gate_eps=2.0, beam_eps=3.0, time_eps=30, min_pts=20, nrang=75, nbeam=16, dr=45, dtheta=3.3, r_init=180)
+    gdb = GridBasedDBSCAN(gate_eps=3.0, beam_eps=2.0, time_eps=30, min_pts=5, nrang=75, nbeam=16, dr=45, dtheta=3.3, r_init=180)
     labels = gdb.fit(data)
     clusters = np.unique(labels)
 
@@ -186,11 +186,11 @@ if __name__ == "__main__":
     print('clusters: ', clusters)
     for i, label in enumerate(clusters):
         plt.scatter(data[2, labels == label], data[0, labels == label], color=colors[i])
-    plt.savefig("grid-based DBSCAN RTI.png")
+    plt.savefig("../grid-based DBSCAN RTI.png")
     plt.close()
 
-    from superdarn_cluster.FanPlot import FanPlot
 
+    from superdarn_cluster.FanPlot import FanPlot
     # For each unique time unit
     times_unique_dt = data_dict['datetime']
     times_unique_num = [date2num(t) for t in data_dict['datetime']]
@@ -204,6 +204,8 @@ if __name__ == "__main__":
         # Will throw an error if the time period cuts off before finishing a scan (usually the even numbers are pretty close)
         scan_mask = ((time >= times_unique_num[i]).astype(int) & (time <= times_unique_num[i + 15]).astype(int)).astype(bool)
         data_i = data[:, scan_mask]
+        if scan % 20 == 0:
+            print("no!")
 
         for c, label in enumerate(clusters):
             label_mask = labels[scan_mask] == label
@@ -212,7 +214,7 @@ if __name__ == "__main__":
         #plt.show()
         scan += 1
         plt.title(str(times_unique_dt[i]))
-        plt.savefig(str(scan) + " grid-based DBSCAN fanplot.png")
+        plt.savefig("../" + str(scan) + " grid-based DBSCAN fanplot.png")
         plt.close()
 
 
