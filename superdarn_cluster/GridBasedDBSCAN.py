@@ -15,7 +15,7 @@ NOISE = -1
 class GridBasedDBSCAN():
 
     def __init__(self, gate_eps, beam_eps, time_eps, min_pts, nrang, nbeam, dr, dtheta, r_init=0):
-        dtheta = dtheta * 3.14159 / 360.0
+        dtheta = dtheta * 3.14159 / 180.0
         self.C = np.zeros((nrang, nbeam))
         for i in range(nrang):
             for j in range(nbeam):
@@ -29,18 +29,14 @@ class GridBasedDBSCAN():
 
     def _eps_neighborhood(self, p, q, space_eps):
         # filter by time neighbors
-
         min_time = p[2] - self.time_eps
         max_time = p[2] + self.time_eps
         time_neighbor = q[2] >= min_time and q[2] <= max_time
         if not time_neighbor:
             return False
 
-        # TODO change this to use class variables
         h = space_eps[0]
         w = space_eps[1]
-
-        # TODO verify width is bigger for long range
 
         # Search in an ellipsoid with the 3 epsilon values (slower, performs similar to the filter so far)
         # t = self.time_eps
@@ -118,7 +114,7 @@ class GridBasedDBSCAN():
         # At further ranges, the ellipse should become less wide. That's what this should be doing. Adaptive elliptical search area.
 
 
-        # TODO adaptive minPts
+        # TODO adaptive minPts??
         g, f = self.beam_eps, 1
 
         #w0 = 1
@@ -136,18 +132,6 @@ class GridBasedDBSCAN():
                     cluster_id = cluster_id + 1
         return classifications
 
-def test_dbscan():
-    import matplotlib.pyplot as plt
-    m = (np.random.normal(size=(2, 100)) * 10).astype(int)
-    eps = [2, 5]
-    min_points = 5
-    labels = np.array(dbscan(m, eps, min_points))
-    clusters = np.unique(labels)
-    colors = plt.cm.plasma(np.linspace(0, 1, len(clusters)))
-    print('clusters: ', clusters)
-    for i, label in enumerate(clusters):
-        plt.scatter(m[0, labels == label], m[1, labels == label], color=colors[i])
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -155,8 +139,8 @@ if __name__ == "__main__":
     from superdarn_cluster.dbtools import flatten_data_11_features, read_db
     import datetime as dt
 
-    start_time = dt.datetime(2018, 2, 7, 12)
-    end_time = dt.datetime(2018, 2, 7, 16)
+    start_time = dt.datetime(2018, 2, 7, 14, 15)
+    end_time = dt.datetime(2018, 2, 7, 14, 30)
     rad = 'sas'
     db_path = "../Data/sas_GSoC_2018-02-07.db"
     b = 0
@@ -175,7 +159,7 @@ if __name__ == "__main__":
     data = np.column_stack((gate, beam, integer_time)).T
 
     #NOTE - these params need to change if you set remove_close_range=False. Takes a while to determine since each run is slow.
-    gdb = GridBasedDBSCAN(gate_eps=3.0, beam_eps=2.0, time_eps=30, min_pts=5, nrang=75, nbeam=16, dr=45, dtheta=3.3, r_init=180)
+    gdb = GridBasedDBSCAN(gate_eps=3.0, beam_eps=4.0, time_eps=30, min_pts=5, nrang=75, nbeam=16, dr=45, dtheta=3.3, r_init=180)
     labels = gdb.fit(data)
     clusters = np.unique(labels)
 
@@ -204,9 +188,6 @@ if __name__ == "__main__":
         # Will throw an error if the time period cuts off before finishing a scan (usually the even numbers are pretty close)
         scan_mask = ((time >= times_unique_num[i]).astype(int) & (time <= times_unique_num[i + 15]).astype(int)).astype(bool)
         data_i = data[:, scan_mask]
-        if scan % 20 == 0:
-            print("no!")
-
         for c, label in enumerate(clusters):
             label_mask = labels[scan_mask] == label
             fanplot.plot(data_i[1, label_mask], data_i[0, label_mask], color=colors[c])
