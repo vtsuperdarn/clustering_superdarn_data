@@ -15,7 +15,7 @@ NOISE = -1
 class GridBasedDBSCAN():
 
     def __init__(self, gate_eps, beam_eps, time_eps, min_pts, nrang, nbeam, dr, dtheta, r_init=0):
-        dtheta = dtheta * 3.14159 / 180.0
+        dtheta = dtheta * np.pi / 180.0
         self.C = np.zeros((nrang, nbeam))
         for i in range(nrang):
             for j in range(nbeam):
@@ -133,14 +133,13 @@ class GridBasedDBSCAN():
         return classifications
 
 
-
 if __name__ == "__main__":
     import numpy as np
     from superdarn_cluster.dbtools import flatten_data_11_features, read_db
     import datetime as dt
 
-    start_time = dt.datetime(2018, 2, 7, 14, 15)
-    end_time = dt.datetime(2018, 2, 7, 14, 30)
+    start_time = dt.datetime(2018, 2, 7)
+    end_time = dt.datetime(2018, 2, 8)
     rad = 'sas'
     db_path = "../Data/sas_GSoC_2018-02-07.db"
     b = 0
@@ -150,13 +149,10 @@ if __name__ == "__main__":
     gate = data_flat_unscaled[:, 1]
     beam = data_flat_unscaled[:, 0]
     time = data_flat_unscaled[:, 6]
-    scaled_time = (time - time[0]) #(time - np.floor(time)) * 24 * 60 * 60
-    uniq_time = np.sort(np.unique(scaled_time))
-    shifted_time = np.roll(uniq_time, -1)
-    dt = np.min((shifted_time - uniq_time)[:-1])
-    integer_time = scaled_time / (dt)
+    time_sec = time_days_to_sec(time)
+    time_index, time_index_unique = time_sec_to_index(time_sec)
 
-    data = np.column_stack((gate, beam, integer_time)).T
+    data = np.column_stack((gate, beam, time_index)).T
 
     #NOTE - these params need to change if you set remove_close_range=False. Takes a while to determine since each run is slow.
     gdb = GridBasedDBSCAN(gate_eps=3.0, beam_eps=4.0, time_eps=30, min_pts=5, nrang=75, nbeam=16, dr=45, dtheta=3.3, r_init=180)
@@ -172,7 +168,6 @@ if __name__ == "__main__":
         plt.scatter(data[2, labels == label], data[0, labels == label], color=colors[i])
     plt.savefig("../grid-based DBSCAN RTI.png")
     plt.close()
-
 
     from superdarn_cluster.FanPlot import FanPlot
     # For each unique time unit
