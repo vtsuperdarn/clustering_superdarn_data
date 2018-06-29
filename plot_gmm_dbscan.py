@@ -7,9 +7,7 @@
 import numpy as np
 from sklearn.cluster import DBSCAN
 
-
-# #############################################################################
-# Get data
+# ~~ Get data ~~
 from superdarn_cluster.dbtools import flatten_data_11_features, read_db
 import datetime as dt
 
@@ -20,7 +18,6 @@ db_path = "./Data/sas_GSoC_2018-02-07.db"
 b = 0
 data_dict = read_db(db_path, rad, start_time, end_time)
 data_flat_unscaled = flatten_data_11_features(data_dict, remove_close_range=True)
-
 
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import scale
@@ -33,7 +30,6 @@ vel = data_flat_unscaled[:, 2]
 wid = data_flat_unscaled[:, 3]
 time_num_days = data_flat_unscaled[:, 6]
 
-
 # What matters for scaling this is the size of each step between these (discrete) measurements.
 # If you want to connect things within 1 range gate and 1 beam, do no scaling and set eps ~= 1.1
 # If you want to connect things within 6 time measurements, scale it so that 6 * dt = 1 and eps ~= 1.1
@@ -45,23 +41,9 @@ shifted_time = np.roll(uniq_time, -1)
 dt = np.min((shifted_time - uniq_time)[:-1])
 integer_time = scaled_time / dt
 scaled_time = scale(scaled_time / (dt))
-print(dt)
 # Divide by variance and center mean at 0
 scaled_gate = gate
 scaled_beam = beam
-
-sorted_time = np.sort(np.unique(scaled_time))[:20]
-print(sorted_time[0] - sorted_time[1])
-
-sorted_gate = np.sort(np.unique(scaled_gate))[:10]
-print(sorted_gate[0] - sorted_gate[1])
-
-sorted_beam = np.sort(np.unique(scaled_beam))[:10]
-print(sorted_beam[0] - sorted_beam[1])
-
-
-# In[6]:
-
 
 # ~~ DBSCAN ~~
 # ~~ Important note: On certain systems (HDD + 8GB RAM + Ubuntu16 desktop) this won't run due to memory consumption
@@ -81,27 +63,12 @@ labels = db.labels_
 
 # Number of clusters in labels, ignoring noise if present.
 n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-print('Estimated number of clusters: %d' % n_clusters_)
-print(labels[:100])
+print('DBSCAN clusters: %d' % n_clusters_)
 
-
-# In[7]:
-
-
-print(labels.shape)
-print(core_samples_mask.shape)
-print(X.shape)
-
-
-# In[8]:
-
-
-# Black removed and is used for noise instead.
 unique_labels = set(labels)
 colors = [plt.cm.Spectral(each)
           for each in np.linspace(0, 1, len(unique_labels))]
 range_max = data_dict['nrang'][0]
-
 
 from matplotlib.dates import date2num
 # For each unique time unit
@@ -112,14 +79,17 @@ times_unique_index = time_days_to_index(times_unique_index)
 index_time = time_days_to_index(time_num_days)
 
 
-# Create a fanplot for each scan. Note, this will generate about 1000 plots for 1 day of data, so it takes a while.
-#from superdarn_cluster.FanPlot import FanPlot
-#fan_colors = list(colors)
-#fan_colors.append((0, 0, 0, 1))
-#fanplot = FanPlot()
-#fanplot.plot_all(times_unique_dt, times_unique_index, index_time, beam, gate, labels, fan_colors)
+# ~~ Fanplots ~~
+# Note this will create about 1000 plots for 1 day of data, so it takes a while.
+"""
+from superdarn_cluster.FanPlot import FanPlot
+fan_colors = list(colors)
+fan_colors.append((0, 0, 0, 1))
+fanplot = FanPlot()
+fanplot.plot_all(times_unique_dt, times_unique_index, index_time, beam, gate, labels, fan_colors)
+"""
 
-
+# ~~ Plotting all DBSCAN clusters on RTI plot (scatterplot) ~~
 for b in range(16):
     fig = plt.figure(figsize=(16,8))
     for k, col in zip(unique_labels, colors):
@@ -142,14 +112,12 @@ for b in range(16):
     plt.savefig('dbscan beam ' + str(b))
     plt.close()
 
-
 from superdarn_cluster.utilities import plot_clusters
 stats_i = [0, 1, 2, 3, 4, 7, 8]
 data_flat_unscaled[:, 2] = np.abs(data_flat_unscaled[:, 2])
 data_flat_unscaled[:, 3] = np.abs(data_flat_unscaled[:, 3])
 plot_clusters(labels, data_flat_unscaled[:, stats_i], data_flat_unscaled[:, 6], 
                gate, vel, np.array(feature_names)[stats_i], range_max, start_time, end_time, save=True, base_path='dbscan ')
-
 
 # ~~ GMM ~~
 from sklearn.mixture import BayesianGaussianMixture
@@ -207,10 +175,7 @@ for k in unique_labels:
     plt.close()
 
 
-
-# In[13]:
-
-#TODO do a colormesh plot
+# ~~ IS/GS Colormesh RTI ~~
 from superdarn_cluster.utilities import plot_is_gs_colormesh
 
 fig = plt.figure(figsize=(16, 4))
@@ -218,12 +183,5 @@ ax = plt.subplot(111)
 time_num_days_unique = [date2num(d) for d in data_dict['datetime']]
 
 plot_is_gs_colormesh(ax, time_num_days_unique, time_num_days, gate, gs_flg, range_max, plot_indeterminate=False)
-# plt.scatter(time[gs_flg == 1], gate[gs_flg == 1], color='blue')
-# plt.scatter(time[gs_flg == 0], gate[gs_flg == 0], color='red')
-# plt.show()
-
-#plt.figure(figsize=(16,8))
-#plt.scatter(time[gs_flg == 1], gate[gs_flg == 1], color='blue')
-#plt.scatter(time[gs_flg == 0], gate[gs_flg == 0], color='red')
 plt.title('gs is colormesh code threshold BoxCox.png')
 plt.savefig('gs is colormesh code threshold BoxCox.png')
