@@ -300,14 +300,27 @@ def plot_is_gs_scatterplot(time, gate, gs_flg, title):
     # TODO get rid of this here
     plt.savefig(title + ".png")
 
-def plot_is_gs_colormesh(ax, time, time_flat, gate, gs_flg, num_range_gates, plot_closerange=False, plot_indeterminate=False):
+def plot_is_gs_colormesh(ax, unique_time, time_flat, gate, gs_flg, num_range_gates, plot_closerange=False, plot_indeterminate=False):
+    """
+    :param ax: matplotlib axis to draw on
+    :param unique_time: all the unique times from a scan
+                        [date2num(d) for d in data_dict['datetime']]
+                        Don't filter this to match scatter from time_flat, gate, gs_flg! Plot will not look right.
+    :param time_flat: non-unique times
+    :param gate:
+    :param gs_flg:
+    :param num_range_gates:
+    :param plot_closerange:
+    :param plot_indeterminate:
+    :return:
+    """
     #from matplotlib.dates import date2num
     import numpy as np
     import matplotlib as mpl
     from matplotlib.dates import DateFormatter
 
-    #time = date2num(time)       # Time that has NOT been extended out to match up with the length of other data
-    num_times = len(time)
+    #unique_time = np.unique(time_flat)
+    num_times = len(unique_time)
     color_mesh = np.zeros((num_times, num_range_gates)) * np.nan
 
     # For IS (0) and GS (1)
@@ -315,7 +328,7 @@ def plot_is_gs_colormesh(ax, time, time_flat, gate, gs_flg, num_range_gates, plo
     for label in [0, 1, -1]:
         i_match = np.where(gs_flg == label)[0]
         for i in i_match:
-            t = np.where(time_flat[i] == time)[0][0]      # One timestamp, multiple gates.
+            t = np.where(time_flat[i] == unique_time)[0][0]      # One timestamp, multiple gates.
             g = int(gate[i])
             if g <= 10 and not plot_closerange:
                 continue
@@ -327,7 +340,7 @@ def plot_is_gs_colormesh(ax, time, time_flat, gate, gs_flg, num_range_gates, plo
 
     # Create a matrix of the right size
     range_gate = np.linspace(1, num_range_gates, num_range_gates)
-    mesh_x, mesh_y = np.meshgrid(time, range_gate)
+    mesh_x, mesh_y = np.meshgrid(unique_time, range_gate)
     invalid_data = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)
 
     #cmap, norm, bounds = utilities.genCmap('is-gs', [0, 3], colors='lasse', lowGray=False)
@@ -340,7 +353,7 @@ def plot_is_gs_colormesh(ax, time, time_flat, gate, gs_flg, num_range_gates, plo
 
     ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
     ax.set_xlabel('UT')
-    ax.set_xlim([time[0], time[-1]])
+    ax.set_xlim([unique_time[0], unique_time[-1]])
     ax.set_ylabel('Range gate')
     ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
 

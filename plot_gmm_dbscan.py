@@ -9,6 +9,7 @@ start_time = dt.datetime(2018, 2, 7)
 end_time = dt.datetime(2018, 2, 8)
 rad = 'sas'
 db_path = "./Data/sas_GSoC_2018-02-07.db"
+num_beams=16
 b = 0
 data_dict = read_db(db_path, rad, start_time, end_time)
 data_flat_unscaled = flatten_data_11_features(data_dict, remove_close_range=True)
@@ -24,6 +25,8 @@ vel = data_flat_unscaled[:, 2]
 wid = data_flat_unscaled[:, 3]
 time_num_days = data_flat_unscaled[:, 6]
 
+
+from matplotlib.dates import date2num
 # What matters for scaling this is the size of each step between these (discrete) measurements.
 # If you want to connect things within 1 range gate and 1 beam, do no scaling and set eps ~= 1.1
 # If you want to connect things within 6 time measurements, scale it so that 6 * dt = 1 and eps ~= 1.1
@@ -49,7 +52,7 @@ gate_eps = 3.0
 X = np.column_stack((beam / beam_eps, gate / gate_eps, integer_time / time_eps))
 print(X.shape)
 
-eps, minPts = 1, 15
+eps, minPts = 1, 10
 db = DBSCAN(eps=eps, min_samples=minPts).fit(X)
 core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
 core_samples_mask[db.core_sample_indices_] = True
@@ -84,8 +87,8 @@ fanplot.plot_all(times_unique_dt, times_unique_index, index_time, beam, gate, la
 """
 
 # ~~ Plotting all DBSCAN clusters on RTI plot (scatterplot) ~~
-for b in range(16):
-    fig = plt.figure(figsize=(16,8))
+for b in range(num_beams):
+    fig = plt.figure(figsize=(16, 8))
     for k, col in zip(unique_labels, colors):
         if k == -1:
             # Black used for noise.
@@ -95,14 +98,15 @@ for b in range(16):
         beam_mask = (beam == b)
 
         xy = X[class_member_mask & core_samples_mask & beam_mask]
-        plt.plot(xy[:, 2], xy[:, 1], '.', color=tuple(col), markersize=15)
+        plt.plot(xy[:, 2], xy[:, 1], '.', color=tuple(col), markersize=10)
 
         xy = X[class_member_mask & ~core_samples_mask & beam_mask]
-        plt.plot(xy[:, 2], xy[:, 1], '.', color=tuple(col), markersize=15)
+        plt.plot(xy[:, 2], xy[:, 1], '.', color=tuple(col), markersize=10)
 
     plt.xlim((np.min(integer_time/time_eps), np.max(integer_time/time_eps)))
     plt.ylim((np.min(gate/gate_eps), np.max(gate/gate_eps)))
     plt.title('Beam %d \n Clusters: %d   Eps: %.2f   MinPts: %d ' % (b, n_clusters_, eps, minPts))
+    #plt.show()
     plt.savefig('dbscan beam ' + str(b))
     plt.close()
 
@@ -133,6 +137,9 @@ stats_i = [0, 1, 2, 3, 4, 7, 8]
 gs_flg = np.zeros(len(time_num_days))
 for k in unique_labels:
     class_member_mask = (labels == k)
+    if k == -1:
+        gs_flg[class_member_mask] = -1
+        continue
     k_vel = vel[class_member_mask]
     k_wid = wid[class_member_mask]
     if np.sum(class_member_mask) < 500:
@@ -172,10 +179,15 @@ for k in unique_labels:
 # ~~ IS/GS Colormesh RTI ~~
 from superdarn_cluster.utilities import plot_is_gs_colormesh
 
-fig = plt.figure(figsize=(16, 4))
-ax = plt.subplot(111)
-time_num_days_unique = [date2num(d) for d in data_dict['datetime']]
+#fig = plt.figure(figsize=(16, 4))
+#ax = plt.subplot(111)
+unique_time = [date2num(d) for d in data_dict['datetime']]
 
-plot_is_gs_colormesh(ax, time_num_days_unique, time_num_days, gate, gs_flg, range_max, plot_indeterminate=False)
-plt.title('gs is colormesh code threshold BoxCox.png')
-plt.savefig('gs is colormesh code threshold BoxCox.png')
+# TODO for each beam
+for b in range(num_beams):
+    fig = plt.figure(figsize=(16, 4))
+    ax = plt.subplot(111)
+    beam_filter = b == beam
+    plot_is_gs_colormesh(ax, unique_time, time_num_days[beam_filter], gate[beam_filter], gs_flg[beam_filter], range_max, plot_indeterminate=True)
+    plt.title('gs is colormesh code threshold BoxCox beam ' + str(b))
+    plt.savefig('gs is colormesh code threshold BoxCox beam ' + str(b))
