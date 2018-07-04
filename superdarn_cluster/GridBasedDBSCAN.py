@@ -40,11 +40,11 @@ class GridBasedDBSCAN():
         w = space_eps[1]
 
         # Search in an ellipsoid with the 3 epsilon values (slower, performs worse than filter so far)
-        t = self.time_eps
-        in_ellipse = ((q[0] - p[0])**2 / w**2 + (q[1] - p[1])**2 / h**2 + (q[2] - p[2])**2 / t**2) <= 1
+        # t = self.time_eps
+        # in_ellipse = ((q[0] - p[0])**2 / w**2 + (q[1] - p[1])**2 / h**2 + (q[2] - p[2])**2 / t**2) <= 1
 
         # Search in an ellipse with widths defined by the 2 epsilon values
-        #in_ellipse = ((q[0] - p[0])**2 / h**2 + (q[1] - p[1])**2 / w**2) <= 1
+        in_ellipse = ((q[0] - p[0])**2 / h**2 + (q[1] - p[1])**2 / w**2) <= 1
 
         return in_ellipse
 
