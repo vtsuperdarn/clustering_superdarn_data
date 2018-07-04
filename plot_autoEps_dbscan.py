@@ -3,9 +3,7 @@
 
 import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
-from kneed import KneeLocator, DataGenerator
-import numpy as np
-from scipy.signal import argrelextrema
+from kneed import KneeLocator
 
 def plot_k_dist(data, k):
     nbr = NearestNeighbors(n_neighbors=k+1).fit(data)
@@ -16,16 +14,24 @@ def plot_k_dist(data, k):
     avg_distances_sorted = np.sort(avg_distances)
 
     plt.title('Sorted average k-th nearest neighbor distance')
-    plt.ylabel('distance')
-    x, y = np.array(range(num_pts)), avg_distances_sorted
+    plt.xlabel('distance')
+
+    x, y = avg_distances_sorted, np.array(range(num_pts))
     plt.scatter(x, y)
     plt.show()
 
     kneedle = KneeLocator(x, y)
 
-    print(kneedle.knee)
+    print('Knee = {} and occurs at the {}th furthest average {}-nearest neighbor.'.format(kneedle.knee, kneedle.knee_x, k))
     kneedle.plot_knee_normalized()
     plt.show()
+
+    kneedle.plot_knee()
+    plt.show()
+
+    autoEps = kneedle.knee
+
+
 
 
 """
@@ -52,8 +58,7 @@ time = data_flat_unscaled[:, 6]
 time_sec = time_days_to_sec(time)
 time_index = time_sec_to_index(time_sec)
 
-data = np.column_stack((gate, beam, time_index))
-min_pts_max = 10
+data = np.column_stack((gate/3.0, beam/2.0, time_index/50.0))
 
-plot_k_dist(data, k=30)
+plot_k_dist(data, k=10)
 plt.ylim((0, 20))
