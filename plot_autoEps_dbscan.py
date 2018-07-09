@@ -5,7 +5,29 @@ import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
 from kneed import KneeLocator
 
-def plot_k_dist(data, k):
+def find_knees(x, y):
+    pass
+
+# Simple knee alg, will only find 1 knee
+# (if you want more, create an array of the dist values, and find the relative extrema)
+def find_knee(x, y):
+    max_dist = 0
+    knee_x, knee_y = -1, -1
+    y_init = y[0]
+    slope = y[-1] / x[-1]
+
+    for i in range(len(x)):
+        # Data point
+        px, py = x[i], y[i]
+        # Point on a straight line drawn from the first data point to the last data point
+        lx, ly = x[i], y_init + slope * x[i]
+        dist = np.sqrt((px - lx)**2 + (py - ly)**2)
+        if dist > max_dist:
+            max_dist = dist
+            knee_x, knee_y = px, py
+    return knee_x, knee_y
+
+def plot_k_dist(data, k, gate_eps, beam_eps, time_eps):
     nbr = NearestNeighbors(n_neighbors=k+1).fit(data)
     num_pts = data.shape[0]
     distances, indices = nbr.kneighbors(data)
@@ -13,25 +35,27 @@ def plot_k_dist(data, k):
     avg_distances = np.array([np.sum(distances[p]) / k for p in range(num_pts)])    # Avg distances for a smoother curve
     avg_distances_sorted = np.sort(avg_distances)
 
-    plt.title('Sorted average k-th nearest neighbor distance')
-    plt.xlabel('distance')
-
-    x, y = avg_distances_sorted, np.array(range(num_pts))
+    plt.figure(figsize=(16, 8))
+    x, y = np.array(range(num_pts)), avg_distances_sorted
     plt.scatter(x, y)
+
+
+    knee_x, knee_y = find_knee(x, y)
+    print('Automatic epsilon value chosen: {}'.format(knee_y))
+
+    plt.title('Sorted average %d-th nearest neighbor distance\ngate eps: %.1f   beam eps: %.1f   time eps: %.1f\nchosen epsilon: %.3f'
+              % (k, gate_eps, beam_eps, time_eps, knee_y))
+    plt.ylabel('distance')
+
+    plt.scatter(knee_x, knee_y, s=60, color='red', label='knee')
     plt.show()
 
-    kneedle = KneeLocator(x, y)
-
-    print('Knee = {} and occurs at the {}th furthest average {}-nearest neighbor.'.format(kneedle.knee, kneedle.knee_x, k))
-    kneedle.plot_knee_normalized()
-    plt.show()
-
+    kneedle = KneeLocator(y, x)
+    kneedle.find_knee()
     kneedle.plot_knee()
     plt.show()
-
-    autoEps = kneedle.knee
-
-
+    kneedle.plot_knee_normalized()
+    plt.show()
 
 
 """
@@ -58,7 +82,10 @@ time = data_flat_unscaled[:, 6]
 time_sec = time_days_to_sec(time)
 time_index = time_sec_to_index(time_sec)
 
-data = np.column_stack((gate/3.0, beam/2.0, time_index/50.0))
+k=10
+gate_eps, beam_eps, time_eps = 3.0, 2.0, 40.0
+data = np.column_stack((gate/gate_eps, beam/beam_eps, time_index/time_eps))
+#data = np.column_stack((gate, beam, time_index))
 
-plot_k_dist(data, k=10)
+plot_k_dist(data, k, gate_eps, beam_eps, time_eps)
 plt.ylim((0, 20))

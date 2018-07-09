@@ -9,7 +9,7 @@ start_time = dt.datetime(2018, 2, 7)
 end_time = dt.datetime(2018, 2, 8)
 rad = 'sas'
 db_path = "./Data/sas_GSoC_2018-02-07.db"
-num_beams=16
+num_beams = 16
 b = 0
 data_dict = read_db(db_path, rad, start_time, end_time)
 data_flat_unscaled = flatten_data_11_features(data_dict, remove_close_range=True)
@@ -36,6 +36,7 @@ scaled_time = (time_num_days - time_num_days[0]) #(time - np.floor(time)) * 24 *
 uniq_time = np.sort(np.unique(scaled_time))
 shifted_time = np.roll(uniq_time, -1)
 dt = np.min((shifted_time - uniq_time)[:-1])
+print(dt)
 integer_time = scaled_time / dt
 scaled_time = scale(scaled_time / (dt))
 # Divide by variance and center mean at 0
@@ -45,8 +46,8 @@ scaled_beam = beam
 # ~~ DBSCAN ~~
 # ~~ Important note: On certain systems (HDD + 8GB RAM + Ubuntu16 desktop) this won't run due to memory consumption
 # ~~ Works fine on my laptop (SSD + 8GB RAM + Ubuntu18, decent i5)
-time_eps = 50.0
-beam_eps = 2.0
+time_eps = 60.0
+beam_eps = 4.0
 gate_eps = 3.0
 
 X = np.column_stack((beam / beam_eps, gate / gate_eps, integer_time / time_eps))
@@ -77,7 +78,7 @@ index_time = time_days_to_index(time_num_days)
 
 
 # ~~ Fanplots ~~
-# Note this will create about 1000 plots for 1 day of data, so it takes a while.
+# Note this will create >1000 plots for 1 day of data, so it takes a while (10 minutes maybe).
 """
 from superdarn_cluster.FanPlot import FanPlot
 fan_colors = list(colors)
@@ -130,8 +131,8 @@ def get_gs_flg(v, w):
     med_vel = np.median(np.abs(v))
     med_wid = np.median(np.abs(w))
     #return med_vel < 33.1 + 0.139 * med_wid - 0.00133 * (med_wid ** 2)
-    return med_vel < 30 - med_wid * 1.0 / 3.0
-    #return med_vel < 15
+    #return med_vel < 30 - med_wid * 1.0 / 3.0
+    return med_vel < 15
 
 stats_i = [0, 1, 2, 3, 4, 7, 8]
 gs_flg = np.zeros(len(time_num_days))

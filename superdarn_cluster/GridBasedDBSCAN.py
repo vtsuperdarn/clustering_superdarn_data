@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
+"""
+Grid-based DBSCAN
+Author: Esther Robb
 
-# A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise
-# Martin Ester, Hans-Peter Kriegel, Jörg Sander, Xiaowei Xu
-# dbscan: density based spatial clustering of applications with noise
-# based on:
+This is the slower implementation of Grid-based DBSCAN
+
+"""
 
 import numpy as np
 
@@ -20,8 +21,6 @@ class GridBasedDBSCAN():
             for j in range(nbeam):
                 # This is the ratio between radial and angular distance for each point. Across a row it's all the same, consider removing j.
                 self.C[i,j] = self._calculate_ratio(dr, dtheta, i, j, r_init=r_init)
-        print(self.C)
-        print()
         self.gate_eps = gate_eps
         self.beam_eps = beam_eps
         self.time_eps = time_eps
@@ -29,7 +28,7 @@ class GridBasedDBSCAN():
 
 
     def _eps_neighborhood(self, p, q, space_eps):
-        # filter by time neighbors
+        # Filter by time neighbors
         min_time = p[2] - self.time_eps
         max_time = p[2] + self.time_eps
         time_neighbor = q[2] >= min_time and q[2] <= max_time
@@ -95,13 +94,7 @@ class GridBasedDBSCAN():
 
 
     def fit(self, m):
-        """Implementation of Density Based Spatial Clustering of Applications with Noise
-        See https://en.wikipedia.org/wiki/DBSCAN
-
-        scikit-learn probably has a better implementation
-
-        Uses Euclidean Distance as the measure
-
+        """
         Inputs:
         m - A matrix whose columns are feature vectors
         eps - Maximum distance two points can be to be regionally related
@@ -111,15 +104,8 @@ class GridBasedDBSCAN():
         An array with either a cluster id number or dbscan.NOISE (-1) for each
         column vector in m.
         """
-        # These should be fractional #'s i think? Not 100% sure...
-        # I think this shouldn't be in units of km.
-        # At further ranges, the ellipse should become less wide. That's what this should be doing. Adaptive elliptical search area.
 
-
-        # TODO adaptive minPts??
         g, f = self.beam_eps, 1
-
-        #w0 = 1
         cluster_id = 1
         n_points = m.shape[1]
         classifications = [UNCLASSIFIED] * n_points

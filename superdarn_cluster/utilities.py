@@ -419,7 +419,9 @@ def plot_clusters(cluster_membership, data_for_stats, time, gate, vel, feature_n
     # Do color coding by cluster
     # TODO https://stackoverflow.com/questions/19064772/visualization-of-scatter-plots-with-overlapping-points-in-matplotlib
     #cluster_col = plt.cm.viridis(np.linspace(0, 1, num_clusters))
-    cluster_col = plt.cm.plasma(np.linspace(0, 1, num_clusters))
+    #cluster_col = plt.cm.plasma(np.linspace(0, 1, num_clusters))
+    cluster_col = [plt.cm.Spectral(each)
+              for each in np.linspace(0, 1, num_clusters)]
     alpha = 1
     # Plot individually
     for i in range(num_clusters):
@@ -458,7 +460,7 @@ def plot_clusters(cluster_membership, data_for_stats, time, gate, vel, feature_n
     """ Plot All Clusters """
     alpha = 0.15
     plot_number = num_clusters + 1
-    plt.figure(figsize=(15, 6))
+    plt.figure(figsize=(16, 8))
     ax0 = plt.subplot(111)
     ax0.xaxis.set_major_formatter(DateFormatter('%H:%M'))
     ax0.set_xlim([start_time, end_time])
