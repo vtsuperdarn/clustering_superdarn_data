@@ -26,7 +26,7 @@ time_index = time_sec_to_index(time_sec)
 data = np.column_stack((gate, beam, time_index)).T
 
 # NOTE - these params need to change if you set remove_close_range=False. Params determined on 15min often work for longer time periods.
-gdb = GridBasedDBSCAN(gate_eps=3.0, beam_eps=5.0, time_eps=30, min_pts=5, nrang=75, nbeam=16, dr=45, dtheta=3.3,
+gdb = GridBasedDBSCAN(gate_eps=3.0, beam_eps=5.0, time_eps=30, min_pts=5, ngate=75, nbeam=16, dr=45, dtheta=3.3,
                       r_init=180)
 labels = gdb.fit(data)
 labels = np.array(labels)

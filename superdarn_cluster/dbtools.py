@@ -53,6 +53,45 @@ def read_db(db_path, rad, start_time, end_time, beam='*'):
     data_dict['phi0'] = [json.loads(x[14]) for x in rws]        #phi0 for calculation of elevation angle
     return data_dict
 
+
+def _monotonic(vec):
+    if len(vec) < 2:
+        return True
+    return all(x <= y for x, y in zip(vec[:-1], vec[1:])) \
+           or all(x >= y for x, y in zip(vec[:-1], vec[1:]))
+
+
+# TODO make this work for other satellite modes (what are the other satellite modes?)
+# TODO see radDataRead -> readScan
+# TODO this is very slow, it could be made more efficient by combining it with read_db.
+def get_scan_nums(beams_flat):
+    """
+    Figure out scan number label for each data point in beams_flat.
+
+    NOTE: Only works on normal mode - beam # always increasing/decreasing in one scan!
+
+    :param beams_flat: list/array of beams from flatten_data array
+    :return: Integer scan number for each data point in beams_flat
+    """
+    scan = 0
+    i = 0
+    scan_nums = np.zeros(len(beams_flat)).astype(int)
+    while i < len(beams_flat):
+        scan_i = []
+        j = 0
+        while i + j + 1 <= len(beams_flat):
+            new_scan = list(range(i, i+j+1))
+            if _monotonic(beams_flat[new_scan]):
+                scan_i = new_scan
+                j += 1
+            else:
+                break
+        scan_nums[scan_i] = scan
+        scan += 1
+        i += j
+    return scan_nums
+
+
 #TODO rewrite this function it is getting ugly with all the scaling and filtering
 def flatten_data(data_dict, extras=False, scale=True, transform=False, remove_close_range=False):
     """

@@ -15,7 +15,6 @@ class FanPlot:
         self.dr = dr
         self.dtheta = dtheta
         # Initial angle (from X, polar coordinates) for beam 0
-        # TODO this parameter should be calculated
         self.theta0 = (90 - dtheta * nbeam / 2)
         self._open_figure()
 
