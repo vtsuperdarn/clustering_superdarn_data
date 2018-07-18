@@ -6,8 +6,8 @@ from superdarn_cluster.dbtools import flatten_data_11_features, read_db, get_sca
 import datetime as dt
 from superdarn_cluster.time_utils import *
 
-year, month, day = 2017, 10, 16
-rad = 'cvw'
+year, month, day = 2018, 2, 7
+rad = 'sas'
 
 start_time = dt.datetime(year, month, day)
 end_time = dt.datetime(year, month, day+1)
@@ -28,12 +28,17 @@ time_sec = time_days_to_sec(time_num_days)
 time_index = time_sec_to_index(time_sec)
 scan_nums = get_scan_nums(beam)
 
-data = []
+gate_scans = []
+beam_scans = []
+vel_scans = []
 import pickle
 
 for s in np.unique(scan_nums):
     scan_mask = scan_nums == s
-    data.append(np.row_stack((gate[scan_mask], beam[scan_mask], vel[scan_mask])))
+    gate_scans.append(gate[scan_mask])
+    beam_scans.append(beam[scan_mask])
+    vel_scans.append(vel[scan_mask])
 
-filename = "./pickles/%s_%s_grid.pickle" % (rad, date_str)
+data = {'gate' : gate_scans, 'beam' : beam_scans, 'vel' : vel_scans}
+filename = "./pickles/%s_%s_scans.pickle" % (rad, date_str)
 pickle.dump(data, open(filename, 'wb'))
