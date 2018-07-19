@@ -16,10 +16,9 @@ import numpy as np
 UNCLASSIFIED = 0
 NOISE = -1
 
-
 class GridBasedDBSCAN():
 
-    def __init__(self, f, g, nonspatial_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init=0):
+    def __init__(self, f, g, time_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init=0):
         dtheta = dtheta * np.pi / 180.0
         self.C = np.zeros((ngate, nbeam))
         for gate in range(ngate):
@@ -28,7 +27,8 @@ class GridBasedDBSCAN():
                 self.C[gate, beam] = self._calculate_ratio(dr, dtheta, gate, beam, r_init=r_init)
         self.g = g
         self.f = f
-        self.eps2 = nonspatial_eps
+        #self.eps2 = nonspatial_eps
+        self.time_eps = time_eps
         print('Max beam_eps: ', np.max(self.g / (self.f * self.C)))
         print('Min beam_eps: ', np.min(self.g / (self.f * self.C)))
         self.pts_ratio = pts_ratio
@@ -58,17 +58,17 @@ class GridBasedDBSCAN():
         b_min, b_max = max(0, grid_id[1] - ciel_wid), min(self.nbeam, grid_id[1] + ciel_wid + 1)
         s_min, s_max = max(0, scan_i-1), min(len(data), scan_i+2)       # look at +- 1 scan
         possible_pts = 0
-        # TODO add loop here for scan
         for g in range(g_min, g_max):
             for b in range(b_min, b_max):
                 new_id = (g, b)
                 # Add the new point only if it falls within the ellipse defined by wid, hgt
-                if self._in_ellipse(new_id, grid_id, hgt, wid):
-                    for s in range(s_min, s_max):
+                #if self._in_ellipse(new_id, grid_id, hgt, wid):
+                for s in range(s_min, s_max):
+                    if self._in_ellipse(new_id, grid_id, hgt, wid):
                         possible_pts += 1
                         if data[s][new_id]:   # Add the point to seeds only if there is a 1 in the sparse matrix there
                             new_vel = data[s][new_id]
-                            if not cluster_avg or np.abs(cluster_avg - new_vel) <= self.eps2:    #np.sqrt((vel1 - vel2)**2)
+                            if cluster_avg == None or np.abs(cluster_avg - new_vel) <= self.eps2:    #np.sqrt((vel1 - vel2)**2)
                                 seeds.append((s, new_id))
         return seeds, possible_pts
 
@@ -105,7 +105,8 @@ class GridBasedDBSCAN():
 
             while len(seeds) > 0:
                 current_scan, current_grid = seeds[0][0], seeds[0][1]
-                results, possible_pts = self._region_query(data, current_scan, current_grid, cluster_avg)
+                #results, possible_pts = self._region_query(data, current_scan, current_grid, cluster_avg)
+                results, possible_pts = self._region_query(data, current_scan, current_grid)
                 k = possible_pts * self.pts_ratio
                 if len(results) >= k:
                     for i in range(0, len(results)):
@@ -159,23 +160,25 @@ def _calculate_ratio(dr, dt, i, j, r_init=0):
     cij = (r_init + dr * i) / (2.0 * dr) * (np.sin(dt * (j + 1.0) - dt * j) + np.sin(dt * j - dt * (j - 1.0)))
     return cij
 
-def dict_to_csr_sparse(data_dict, ngate, nbeam):
+
+def dict_to_csr_sparse(data_dict, ngate, nbeam, values):
     from scipy import sparse
     gate = data_dict['gate']
     beam = data_dict['beam']
-    vel = data_dict['vel']
-    nscan = len(gate)
+    nscan = len(values)
     data = []
     data_i = []
     for i in range(nscan):
-        values = [True] * len(gate[i])
-        m = sparse.csr_matrix((values, (gate[i], beam[i])), shape=(ngate, nbeam))
+        m = sparse.csr_matrix((values[i], (gate[i], beam[i])), shape=(ngate, nbeam))
         m_i = list(zip(np.array(gate[i]).astype(int), np.array(beam[i]).astype(int)))
         data.append(m)
         data_i.append(m_i)
     return data, data_i
 
 # TODO what about when there's no data... this assumes there is always data
+# TODO I don't think the non-spatial value part of this is working well, just based on the velocity plot
+# TODO is the time part of this working properly? Looks to be. Try a time epsilon? Smaller g?
+
 if __name__ == '__main__':
     """ Fake data 
     gate = np.random.randint(low=0, high=nrang-1, size=100)
@@ -188,28 +191,27 @@ if __name__ == '__main__':
     ngate = 75
     nbeam = 16
     scan_i = 0            # ~1400 scans/day for SAS and CVW
-    # TODO turn this into a sparse matrix? I can't find a good way to *find* the data in a sparse matrix but there must be a way...
     data_dict = pickle.load(open("../pickles/%s_scans.pickle" % rad_date, 'rb'))
 
     from scipy.stats import boxcox
-    data_dict['vel'] = [boxcox(np.abs(vel))[0] for vel in data_dict['vel']]
+    scans_to_use = range(200)#len(data_dict['gate']))
+    values = [np.abs(v) for v in data_dict['vel']] #[[True]*len(data_dict['gate'][i]) for i in scans_to_use]
+    data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam, values)
 
-    data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam)
-
-    scans_to_use = 10
-    data, data_i = data[:scans_to_use], data_i[:scans_to_use]
 
     """ Grid-based DBSCAN """
     from superdarn_cluster.FanPlot import FanPlot
     import matplotlib.pyplot as plt
 
-    # Solid params across the board: f=0.3, g=2
+    # Solid params board: f=0.2 0.3 0.4, g=1 2 3
+    # Good way to tune this one: Use only the first 200 scans of SAS 2-7-18, because they tend to get all clustered together with bad params,
+    # but then there is a long period of quiet so there's time separation between that big cluster and everything else.
     dr = 45
     dtheta = 3.3
     r_init = 180
-    f = 0.3
-    g = 2
-    pts_ratio = 0.3
+    f = 0.2
+    g = 1
+    pts_ratio = 0.7
     nonspatial_eps = 2.0    # for BoxCox velocity, this is very roughly 1 standard deviation. needs adjustment and logic on why to choose this
     gdb = GridBasedDBSCAN(f, g, nonspatial_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
     import time
@@ -221,10 +223,14 @@ if __name__ == '__main__':
     unique_clusters = np.unique(np.hstack(labels))
     print('Grid-based DBSCAN Clusters: ', unique_clusters)
     cluster_colors = list(
-        plt.cm.viridis(np.linspace(0, 1, len(unique_clusters))))  # one extra unused color at index 0 (no cluster label == 0)
+        plt.cm.jet(np.linspace(0, 1, len(unique_clusters)+1)))  # one extra unused color at index 0 (no cluster label == 0)
+    # randomly re-arrange colors for contrast in adjacent clusters
+    np.random.shuffle(cluster_colors)
+
     cluster_colors.append((0, 0, 0, 1))  # black for noise
 
-    for i in range(scans_to_use):
+    vel = data_dict['vel']
+    for i in scans_to_use:
         clusters = np.unique(labels[i])
         # Plot a fanplot
         fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
@@ -237,14 +243,25 @@ if __name__ == '__main__':
         plt.savefig(filename)
         plt.close()
 
+        """ Velocity map """
         # Plot velocity fanplot
         fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
-        # Scale velocity values to fall between 0 and 1 for color plotting
-        vel = data_dict['vel'][i]
-        vel = (vel - np.min(vel)) / np.max(vel)
-        vel_colors = plt.cm.YlOrRd(vel)
-        fanplot.plot(data_dict['beam'][i], data_dict['gate'][i], vel_colors)
-        plt.show()
+        vel_step = 25
+        vel_ranges = list(range(-200, 201, vel_step))
+        vel_ranges.insert(0, -9999)
+        vel_ranges.append(9999)
+        cmap = plt.cm.jet       # use 'viridis' to make this redgreen colorblind proof
+        vel_colors = cmap(np.linspace(0, 1, len(vel_ranges)))
+        for s in range(len(vel_ranges) - 1):
+            step_mask = (vel[i] >= vel_ranges[s]) & (vel[i] <= (vel_ranges[s+1]))
+            fanplot.plot(data_dict['beam'][i][step_mask], data_dict['gate'][i][step_mask], vel_colors[s])
+
+        filename = 'vel_scan%d_fanplot.png' % (i)
+        fanplot.add_colorbar(vel_ranges, cmap)
+        #plt.show()
+        plt.savefig(filename)
+        plt.close()
+
 
 
     """ Testing various params 

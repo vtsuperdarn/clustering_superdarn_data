@@ -3,9 +3,10 @@ import matplotlib.pyplot as plt
 from matplotlib import patches
 from matplotlib.dates import num2date
 
-#TODO slate to add to utilities
 
 class FanPlot:
+
+    # TODO add some params so that you can make this a subplot?
 
     def __init__(self, nrange=75, nbeam=16, r0=180, dr=45, dtheta=3.24):
         # Set member variables
@@ -48,8 +49,20 @@ class FanPlot:
         return all(x <= y for x, y in zip(vec[:-1], vec[1:]))
 
 
+    def add_colorbar(self, bounds, colormap, label=''):
+        import matplotlib as mpl
+        self.cax = self.fig.add_axes([0.9, 0.25, 0.025, 0.5])   # this list defines (left, bottom, width, height)
+        norm = mpl.colors.BoundaryNorm(bounds, colormap.N)
+        cb2 = mpl.colorbar.ColorbarBase(self.cax, cmap=colormap,
+                                        norm=norm,
+                                        ticks=bounds,
+                                        spacing='uniform',
+                                        orientation='vertical')
+        cb2.set_label(label)
+
+
     def plot(self, beams, gates, color="blue"):
-        for beam, gate in zip(beams, gates):
+        for i, (beam, gate) in enumerate(zip(beams, gates)):
             theta = (self.theta0 + beam * self.dtheta) * np.pi / 180        # radians
             r = (self.r0 + gate * self.dr)                                  # km
             width = self.dtheta * np.pi / 180                               # radians
@@ -61,6 +74,7 @@ class FanPlot:
             y = y1, y1, y2, y2
 
             self.ax.fill(x, y, color=color)
+
         self._scale_plot()
 
 
