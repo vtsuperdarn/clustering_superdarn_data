@@ -18,7 +18,7 @@ NOISE = -1
 
 class GridBasedDBSCAN():
 
-    def __init__(self, f, g, time_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init=0):
+    def __init__(self, f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init=0):
         dtheta = dtheta * np.pi / 180.0
         self.C = np.zeros((ngate, nbeam))
         for gate in range(ngate):
@@ -27,8 +27,8 @@ class GridBasedDBSCAN():
                 self.C[gate, beam] = self._calculate_ratio(dr, dtheta, gate, beam, r_init=r_init)
         self.g = g
         self.f = f
-        #self.eps2 = nonspatial_eps
-        self.time_eps = time_eps
+        self.eps2 = eps2
+        self.d_eps = d_eps
         print('Max beam_eps: ', np.max(self.g / (self.f * self.C)))
         print('Min beam_eps: ', np.min(self.g / (self.f * self.C)))
         self.pts_ratio = pts_ratio
@@ -46,7 +46,7 @@ class GridBasedDBSCAN():
 
 
     # add scan id here
-    def _region_query(self, data, scan_i, grid_id, cluster_avg=None):
+    def _region_query(self, data, scan_i, grid_id):
         seeds = []
         hgt = self.g        #TODO should there be some rounding happening to accomidate discrete gate/wid?
         wid = self.g / (self.f * self.C[grid_id[0], grid_id[1]])
@@ -67,8 +67,7 @@ class GridBasedDBSCAN():
                     if self._in_ellipse(new_id, grid_id, hgt, wid):
                         possible_pts += 1
                         if data[s][new_id]:   # Add the point to seeds only if there is a 1 in the sparse matrix there
-                            new_vel = data[s][new_id]
-                            if cluster_avg == None or np.abs(cluster_avg - new_vel) <= self.eps2:    #np.sqrt((vel1 - vel2)**2)
+                            if np.abs(data[scan_i][grid_id] - data[s][new_id]) <= self.eps2:    #np.sqrt((vel1 - vel2)**2)
                                 seeds.append((s, new_id))
         return seeds, possible_pts
 
@@ -112,12 +111,13 @@ class GridBasedDBSCAN():
                     for i in range(0, len(results)):
                         result_scan, result_point = results[i][0], results[i][1]
                         if grid_labels[result_scan][result_point] == UNCLASSIFIED or grid_labels[result_scan][result_point] == NOISE:
-                            if grid_labels[result_scan][result_point] == UNCLASSIFIED:
-                                seeds.append((result_scan, result_point))
-                            grid_labels[result_scan][result_point] = cluster_id
-                            # Update the cluster size and average (without looping through the whole dataset again)
-                            cluster_size += 1
-                            cluster_avg = (cluster_avg * cluster_size + data[result_scan][result_point]) / cluster_size
+                            if np.abs(cluster_avg - data[result_scan][result_point]) <= self.d_eps:
+                                if grid_labels[result_scan][result_point] == UNCLASSIFIED:
+                                    seeds.append((result_scan, result_point))
+                                grid_labels[result_scan][result_point] = cluster_id
+                                # Update the cluster size and average (without looping through the whole dataset again)
+                                cluster_size += 1
+                                cluster_avg = (cluster_avg * cluster_size + data[result_scan][result_point]) / cluster_size
                 seeds = seeds[1:]
             return True
 
@@ -194,8 +194,8 @@ if __name__ == '__main__':
     data_dict = pickle.load(open("../pickles/%s_scans.pickle" % rad_date, 'rb'))
 
     from scipy.stats import boxcox
-    scans_to_use = range(200)#len(data_dict['gate']))
-    values = [np.abs(v) for v in data_dict['vel']] #[[True]*len(data_dict['gate'][i]) for i in scans_to_use]
+    scans_to_use = range(200) #len(data_dict['gate']))
+    values = [np.abs(data_dict['vel'][i]) for i in scans_to_use] #[[True]*len(data_dict['gate'][i]) for i in scans_to_use]
     data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam, values)
 
 
@@ -209,11 +209,11 @@ if __name__ == '__main__':
     dr = 45
     dtheta = 3.3
     r_init = 180
-    f = 0.2
-    g = 1
-    pts_ratio = 0.7
-    nonspatial_eps = 2.0    # for BoxCox velocity, this is very roughly 1 standard deviation. needs adjustment and logic on why to choose this
-    gdb = GridBasedDBSCAN(f, g, nonspatial_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
+    f = 0.3
+    g = 2
+    pts_ratio = 0.3
+    eps2, d_eps = 30, 30
+    gdb = GridBasedDBSCAN(f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
     import time
     t0 = time.time()
     labels = gdb.fit(data, data_i)
@@ -225,6 +225,7 @@ if __name__ == '__main__':
     cluster_colors = list(
         plt.cm.jet(np.linspace(0, 1, len(unique_clusters)+1)))  # one extra unused color at index 0 (no cluster label == 0)
     # randomly re-arrange colors for contrast in adjacent clusters
+    np.random.seed(0)
     np.random.shuffle(cluster_colors)
 
     cluster_colors.append((0, 0, 0, 1))  # black for noise
@@ -238,7 +239,7 @@ if __name__ == '__main__':
             label_mask = labels[i] == c
             fanplot.plot(data_dict['beam'][i][label_mask], data_dict['gate'][i][label_mask], cluster_colors[c])
         plt.title('Grid-based DBSCAN fanplot\nf = %.2f    g = %d    pts_ratio = %.2f' % (f, g, pts_ratio))
-        filename = '%s_f%.2f_g%d_epstwo%.2f_ptRatio%.2f_scan%d_fanplot.png' % (rad_date, f, g, nonspatial_eps, pts_ratio, i)
+        filename = '%s_f%.2f_g%d_ptRatio%.2f_scan%d_fanplot.png' % (rad_date, f, g, pts_ratio, i)
         # plt.show()
         plt.savefig(filename)
         plt.close()

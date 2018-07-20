@@ -64,8 +64,12 @@ class GridBasedDBSCAN():
                 if self._in_ellipse(new_id, grid_id, hgt, wid):
                     possible_pts += 1
                     if m[new_id]:   # Add the point to seeds only if there is a 1 in the sparse matrix there
-                        if np.abs(m[grid_id] - m[new_id]) <= self.eps2:
+                        ratio = min(np.abs(m[new_id] / m[grid_id]), np.abs(m[grid_id] / m[new_id]))  # Get the ratio of smaller val / larger
+                        assert ratio <= 1.0
+                        if ratio >= self.d_eps:
                             seeds.append(new_id)
+                        else:
+                            print('hello')
         return seeds, possible_pts
 
 
@@ -92,6 +96,8 @@ class GridBasedDBSCAN():
             for seed_id in seeds:
                 grid_labels[seed_id] = cluster_id
 
+
+            # TODO debug this
             cluster_avg, cluster_size = self._cluster_avg(m, grid_labels, cluster_id)
 
             while len(seeds) > 0:
@@ -103,7 +109,12 @@ class GridBasedDBSCAN():
                         result_point = results[i]
                         if grid_labels[result_point] == UNCLASSIFIED or grid_labels[result_point] == NOISE:
                             # Check the new point against the cluster avg using d_eps
-                            if np.abs(cluster_avg - m[result_point]) <= self.d_eps:
+                            ratio = min(np.abs(m[result_point] / cluster_avg),
+                                        np.abs(cluster_avg / m[result_point]))  # Get the ratio of smaller val / larger
+                            assert ratio <= 1.0
+
+                            if ratio >= self.d_eps:
+
                                 # If this point has not been visited before (not previously classified as noise), you should
                                 # add it to seeds to find all its neighbors.
                                 if grid_labels[result_point] == UNCLASSIFIED:
@@ -183,7 +194,7 @@ if __name__ == '__main__':
     # TODO turn this into a sparse matrix? I can't find a good way to *find* the data in a sparse matrix but there must be a way...
     data_dict = pickle.load(open("../pickles/%s_scans.pickle" % rad_date, 'rb'))
 
-    #from scipy.stats import boxcox
+    from scipy.stats import boxcox
 
     scans_to_use = range(10) #range(len(data_dict['vel']))
     values = [np.abs(v) for v in data_dict['vel']] #[[True] * len(data_dict['gate'][i]) for i in scans_to_use]
@@ -199,12 +210,12 @@ if __name__ == '__main__':
     r_init = 180
     f = 0.3
     g = 2
-    eps2 = 5
-    d_eps = 10
+    eps2 = 0.5
+    d_eps = 0.5
     pts_ratio = 0.3
     gdb = GridBasedDBSCAN(f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
-
     import time
+
     t = 0
     vel = data_dict['vel']
     for i in scans_to_use:
@@ -237,7 +248,7 @@ if __name__ == '__main__':
         # Plot velocity fanplot
         fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
         vel_step = 5
-        vel_ranges = list(range(-200, 201, vel_step))
+        vel_ranges = list(range(-50, 51, vel_step))
         vel_ranges.insert(0, -9999)
         vel_ranges.append(9999)
         cmap = plt.cm.jet       # use 'viridis' to make this redgreen colorblind proof
