@@ -7,8 +7,7 @@ It uses a sparse Boolean array of data of size (num_grids) x (num_beams)
 The data structure is why it is able to run faster - instead of checking all points to
 find neighbors, it only checks adjacent points.
 
-Complete implementation.
-Confirmed to give the same output as GridBasedDBSCAN_simple.py.
+Adds 2 velocity epsilons, in the same way as ST-DBSCAN
 """
 
 import numpy as np
@@ -19,7 +18,7 @@ NOISE = -1
 
 class GridBasedDBSCAN():
 
-    def __init__(self, f, g, pts_ratio, ngate, nbeam, dr, dtheta, r_init=0):
+    def __init__(self, f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init=0):
         dtheta = dtheta * np.pi / 180.0
         self.C = np.zeros((ngate, nbeam))
         for gate in range(ngate):
@@ -28,6 +27,8 @@ class GridBasedDBSCAN():
                 self.C[gate, beam] = self._calculate_ratio(dr, dtheta, gate, beam, r_init=r_init)
         self.g = g
         self.f = f
+        self.eps2 = eps2
+        self.d_eps = d_eps
         print('Max beam_eps (f=%.2f, g=%d): %2.f' % (f, g, np.max(self.g / (self.f * self.C))))
         print('Min beam_eps: (f=%.2f, g=%d): %.2f' % (f, g, np.min(self.g / (self.f * self.C))))
         self.pts_ratio = pts_ratio
@@ -62,12 +63,25 @@ class GridBasedDBSCAN():
                 if self._in_ellipse(new_id, grid_id, hgt, wid):
                     possible_pts += 1
                     if m[new_id]:   # Add the point to seeds only if there is a 1 in the sparse matrix there
-                        seeds.append(new_id)
+                        ratio = min(np.abs(m[new_id] / m[grid_id]), np.abs(m[grid_id] / m[new_id]))  # Get the ratio of smaller val / larger
+                        assert ratio <= 1.0
+                        if ratio >= self.d_eps:
+                            seeds.append(new_id)
+                        else:
+                            print('hello')
         return seeds, possible_pts
 
 
     def _in_ellipse(self, p, q, hgt, wid):
         return ((q[0] - p[0])**2.0 / hgt**2.0 + (q[1] - p[1])**2.0 / wid**2.0) <= 1.0
+
+
+    def _cluster_avg(self, data, grid_labels, cluster_id):
+        cluster_mask = grid_labels == cluster_id
+        data_i = data[cluster_mask]
+        sum = data_i.sum()
+        size = data_i.shape[1]
+        return sum/size, size
 
 
     def _expand_cluster(self, m, grid_labels, grid_id, cluster_id):
@@ -81,6 +95,9 @@ class GridBasedDBSCAN():
             for seed_id in seeds:
                 grid_labels[seed_id] = cluster_id
 
+            # TODO debug this
+            cluster_avg, cluster_size = self._cluster_avg(m, grid_labels, cluster_id)
+
             while len(seeds) > 0:
                 current_point = seeds[0]
                 results, possible_pts = self._region_query(m, current_point)
@@ -89,11 +106,21 @@ class GridBasedDBSCAN():
                     for i in range(0, len(results)):
                         result_point = results[i]
                         if grid_labels[result_point] == UNCLASSIFIED or grid_labels[result_point] == NOISE:
-                            # If this point has not been visited before (not previously classified as noise), you should
-                            # add it to seeds to find all its neighbors.
-                            if grid_labels[result_point] == UNCLASSIFIED:
-                                seeds.append(result_point)
-                            grid_labels[result_point] = cluster_id
+                            # Check the new point against the cluster avg using d_eps
+                            ratio = min(np.abs(m[result_point] / cluster_avg),
+                                        np.abs(cluster_avg / m[result_point]))  # Get the ratio of smaller val / larger
+                            assert ratio <= 1.0
+
+                            if ratio >= self.d_eps:
+
+                                # If this point has not been visited before (not previously classified as noise), you should
+                                # add it to seeds to find all its neighbors.
+                                if grid_labels[result_point] == UNCLASSIFIED:
+                                    seeds.append(result_point)
+                                grid_labels[result_point] = cluster_id
+                                # Update the cluster size and average (without looping through the whole dataset again)
+                                cluster_avg = (cluster_avg * cluster_size + m[result_point]) / (cluster_size + 1)
+                                cluster_size += 1
                 seeds = seeds[1:]
             return True
 
@@ -132,14 +159,14 @@ def _calculate_ratio(dr, dt, i, j, r_init=0):
     cij = (r_init + dr * i) / (2.0 * dr) * (np.sin(dt * (j + 1.0) - dt * j) + np.sin(dt * j - dt * (j - 1.0)))
     return cij
 
-def dict_to_csr_sparse(data_dict, ngate, nbeam):
+# TODO add a 'values' param instead of using something from the dictionary
+def dict_to_csr_sparse(data_dict, ngate, nbeam, values):
     from scipy import sparse
     gate = data_dict['gate']
     beam = data_dict['beam']
-    nscan = len(gate)
+    nscan = len(values)
     data = []
     data_i = []
-    values = [[True] * len(data_dict['gate'][i]) for i in scans_to_use]
     for i in range(nscan):
         m = sparse.csr_matrix((values[i], (gate[i], beam[i])), shape=(ngate, nbeam))
         m_i = list(zip(np.array(gate[i]).astype(int), np.array(beam[i]).astype(int)))
@@ -165,9 +192,11 @@ if __name__ == '__main__':
     # TODO turn this into a sparse matrix? I can't find a good way to *find* the data in a sparse matrix but there must be a way...
     data_dict = pickle.load(open("../pickles/%s_scans.pickle" % rad_date, 'rb'))
 
+    from scipy.stats import boxcox
 
     scans_to_use = range(10) #range(len(data_dict['vel']))
-    data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam)
+    values = [np.abs(v) for v in data_dict['vel']] #[[True] * len(data_dict['gate'][i]) for i in scans_to_use]
+    data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam, values)
 
     """ Grid-based DBSCAN """
     from superdarn_cluster.FanPlot import FanPlot
@@ -182,7 +211,7 @@ if __name__ == '__main__':
     eps2 = 0.5
     d_eps = 0.5
     pts_ratio = 0.3
-    gdb = GridBasedDBSCAN(f, g, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
+    gdb = GridBasedDBSCAN(f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
     import time
 
     t = 0

@@ -31,6 +31,8 @@ scan_nums = get_scan_nums(beam)
 gate_scans = []
 beam_scans = []
 vel_scans = []
+wid_scans = []
+time_scans = []
 import pickle
 
 for s in np.unique(scan_nums):
@@ -38,7 +40,9 @@ for s in np.unique(scan_nums):
     gate_scans.append(gate[scan_mask])
     beam_scans.append(beam[scan_mask])
     vel_scans.append(vel[scan_mask])
+    wid_scans.append(wid[scan_mask])
+    time_scans.append(time_num_days[scan_mask])
 
-data = {'gate' : gate_scans, 'beam' : beam_scans, 'vel' : vel_scans}
+data = {'gate' : gate_scans, 'beam' : beam_scans, 'vel' : vel_scans, 'wid' : wid_scans, 'time' : time_scans}
 filename = "./pickles/%s_%s_scans.pickle" % (rad, date_str)
 pickle.dump(data, open(filename, 'wb'))
