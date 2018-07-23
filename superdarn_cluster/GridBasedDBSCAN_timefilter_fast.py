@@ -18,7 +18,7 @@ NOISE = -1
 
 class GridBasedDBSCAN():
 
-    def __init__(self, f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init=0):
+    def __init__(self, f, g, pts_ratio, ngate, nbeam, dr, dtheta, r_init=0):
         dtheta = dtheta * np.pi / 180.0
         self.C = np.zeros((ngate, nbeam))
         for gate in range(ngate):
@@ -27,8 +27,6 @@ class GridBasedDBSCAN():
                 self.C[gate, beam] = self._calculate_ratio(dr, dtheta, gate, beam, r_init=r_init)
         self.g = g
         self.f = f
-        self.eps2 = eps2
-        self.d_eps = d_eps
         print('Max beam_eps: ', np.max(self.g / (self.f * self.C)))
         print('Min beam_eps: ', np.min(self.g / (self.f * self.C)))
         self.pts_ratio = pts_ratio
@@ -67,25 +65,12 @@ class GridBasedDBSCAN():
                     if self._in_ellipse(new_id, grid_id, hgt, wid):
                         possible_pts += 1
                         if data[s][new_id]:   # Add the point to seeds only if there is a 1 in the sparse matrix there
-                            if np.abs(data[scan_i][grid_id] - data[s][new_id]) <= self.eps2:    #np.sqrt((vel1 - vel2)**2)
-                                seeds.append((s, new_id))
+                            seeds.append((s, new_id))
         return seeds, possible_pts
 
 
     def _in_ellipse(self, p, q, hgt, wid):
         return ((q[0] - p[0])**2.0 / hgt**2.0 + (q[1] - p[1])**2.0 / wid**2.0) <= 1.0
-
-
-    # TODO bug search for this part
-    def _cluster_avg(self, data, grid_labels, cluster_id):
-        sum = 0.0
-        size = 0.0
-        for scan in range(len(grid_labels)):
-            cluster_mask = grid_labels[scan] == cluster_id
-            data_i = data[scan][cluster_mask]
-            sum += data_i.sum()
-            size += data_i.shape[1]
-        return sum/size, size
 
 
     def _expand_cluster(self, data, grid_labels, scan_i, grid_id, cluster_id):
@@ -100,24 +85,17 @@ class GridBasedDBSCAN():
             for seed_id in seeds:
                 grid_labels[seed_id[0]][seed_id[1]] = cluster_id
 
-            cluster_avg, cluster_size = self._cluster_avg(data, grid_labels, cluster_id)
-
             while len(seeds) > 0:
                 current_scan, current_grid = seeds[0][0], seeds[0][1]
-                #results, possible_pts = self._region_query(data, current_scan, current_grid, cluster_avg)
                 results, possible_pts = self._region_query(data, current_scan, current_grid)
                 k = possible_pts * self.pts_ratio
                 if len(results) >= k:
                     for i in range(0, len(results)):
                         result_scan, result_point = results[i][0], results[i][1]
                         if grid_labels[result_scan][result_point] == UNCLASSIFIED or grid_labels[result_scan][result_point] == NOISE:
-                            if np.abs(cluster_avg - data[result_scan][result_point]) <= self.d_eps:
-                                if grid_labels[result_scan][result_point] == UNCLASSIFIED:
-                                    seeds.append((result_scan, result_point))
-                                grid_labels[result_scan][result_point] = cluster_id
-                                # Update the cluster size and average (without looping through the whole dataset again)
-                                cluster_size += 1
-                                cluster_avg = (cluster_avg * cluster_size + data[result_scan][result_point]) / cluster_size
+                            if grid_labels[result_scan][result_point] == UNCLASSIFIED:
+                                seeds.append((result_scan, result_point))
+                            grid_labels[result_scan][result_point] = cluster_id
                 seeds = seeds[1:]
             return True
 
@@ -194,7 +172,7 @@ if __name__ == '__main__':
     data_dict = pickle.load(open("../pickles/%s_scans.pickle" % rad_date, 'rb'))
 
     from scipy.stats import boxcox
-    scans_to_use = range(200) #len(data_dict['gate']))
+    scans_to_use = range(100) #len(data_dict['gate']))
     values = [np.abs(data_dict['vel'][i]) for i in scans_to_use] #[[True]*len(data_dict['gate'][i]) for i in scans_to_use]
     data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam, values)
 
@@ -209,9 +187,9 @@ if __name__ == '__main__':
     dr = 45
     dtheta = 3.3
     r_init = 180
-    f = 0.3
-    g = 2
-    pts_ratio = 0.3
+    f = 0.2
+    g = 1
+    pts_ratio = 0.6
     eps2, d_eps = 30, 30
     gdb = GridBasedDBSCAN(f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
     import time

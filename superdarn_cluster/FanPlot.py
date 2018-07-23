@@ -61,6 +61,12 @@ class FanPlot:
         cb2.set_label(label)
 
 
+    def text(self, text, beam, gate):
+        theta = (self.theta0 + beam * self.dtheta + 0.5 * self.dtheta) * np.pi / 180
+        r = (self.r0 + gate * self.dr + 0.5 * self.dr)
+        plt.text(theta, r, text)
+
+
     def plot(self, beams, gates, color="blue"):
         for i, (beam, gate) in enumerate(zip(beams, gates)):
             theta = (self.theta0 + beam * self.dtheta) * np.pi / 180        # radians

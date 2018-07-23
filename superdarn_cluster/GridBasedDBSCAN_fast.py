@@ -124,7 +124,7 @@ class GridBasedDBSCAN():
                     cluster_id = cluster_id + 1
 
         point_labels = [grid_labels[grid_id] for grid_id in m_i]
-        return point_labels
+        return np.array(point_labels)
 
 
 def _calculate_ratio(dr, dt, i, j, r_init=0):
@@ -132,7 +132,7 @@ def _calculate_ratio(dr, dt, i, j, r_init=0):
     cij = (r_init + dr * i) / (2.0 * dr) * (np.sin(dt * (j + 1.0) - dt * j) + np.sin(dt * j - dt * (j - 1.0)))
     return cij
 
-def dict_to_csr_sparse(data_dict, ngate, nbeam):
+def dict_to_csr_sparse(data_dict, ngate, nbeam, scans_to_use):
     from scipy import sparse
     gate = data_dict['gate']
     beam = data_dict['beam']
@@ -140,16 +140,13 @@ def dict_to_csr_sparse(data_dict, ngate, nbeam):
     data = []
     data_i = []
     values = [[True] * len(data_dict['gate'][i]) for i in scans_to_use]
-    for i in range(nscan):
+    for i in scans_to_use:
         m = sparse.csr_matrix((values[i], (gate[i], beam[i])), shape=(ngate, nbeam))
         m_i = list(zip(np.array(gate[i]).astype(int), np.array(beam[i]).astype(int)))
         data.append(m)
         data_i.append(m_i)
     return data, data_i
 
-# TODO what about when there's no data... this assumes there is always data
-# TODO I don't think the non-spatial value part of this is working well, just based on the velocity plot
-# TODO is the time part of this working properly? Looks to be. Try a time epsilon? Smaller g?
 
 if __name__ == '__main__':
     """ Fake data 
@@ -167,7 +164,7 @@ if __name__ == '__main__':
 
 
     scans_to_use = range(10) #range(len(data_dict['vel']))
-    data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam)
+    data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam, scans_to_use)
 
     """ Grid-based DBSCAN """
     from superdarn_cluster.FanPlot import FanPlot

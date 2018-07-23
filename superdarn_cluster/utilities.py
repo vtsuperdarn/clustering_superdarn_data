@@ -358,6 +358,53 @@ def plot_is_gs_colormesh(ax, unique_time, time_flat, gate, gs_flg, num_range_gat
     ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
 
 
+def plot_clusters_colormesh(ax, unique_time, time_flat, gate, label, colors, num_gates, cmap):
+    """
+    :param ax: matplotlib axis to draw on
+    :param unique_time: all the unique times from a scan
+                        [date2num(d) for d in data_dict['datetime']]
+                        Don't filter this (ie, remove close-range scatter) to match scatter from time_flat, gate, gs_flg! Plot will not be scaled correctly.
+    :param time_flat: non-unique times
+    :param gate:
+    :param gs_flg:
+    :param num_gates:
+    :return:
+    """
+    #from matplotlib.dates import date2num
+    import numpy as np
+    import matplotlib as mpl
+    from matplotlib.dates import DateFormatter
+
+    #unique_time = np.unique(time_flat)
+    num_times = len(unique_time)
+    color_mesh = np.zeros((num_times, num_gates)) * np.nan
+
+    for l in np.unique(label):
+        i_match = np.where(label == l)[0]
+        for i in i_match:
+            t = np.where(time_flat[i] == unique_time)[0][0]      # One timestamp, multiple gates.
+            g = int(gate[i])
+            color_mesh[t, g] = l
+
+    # Create a matrix of the right size
+    range_gate = np.linspace(1, num_gates, num_gates)
+    mesh_x, mesh_y = np.meshgrid(unique_time, range_gate)
+    invalid_data = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)
+
+    #cmap, norm, bounds = utilities.genCmap('is-gs', [0, 3], colors='lasse', lowGray=False)
+    cmap = mpl.colors.ListedColormap(colors)
+    #bounds = np.round(np.linspace(colors[0], colors[2], 3))
+    #bounds = np.insert(bounds, 0, -50000.)
+    #bounds = np.append(bounds, 50000.)
+    #norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+    #cmap.set_bad('w', alpha=0.0)
+
+    ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+    ax.set_xlabel('UT')
+    ax.set_xlim([unique_time[0], unique_time[-1]])
+    ax.set_ylabel('Range gate')
+    ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap)
+
 def plot_clusters(cluster_membership, data_for_stats, time, gate, vel, feature_names_for_stats, range_max,
                       start_time, end_time, radar='', save=True, base_path=''):
     """
