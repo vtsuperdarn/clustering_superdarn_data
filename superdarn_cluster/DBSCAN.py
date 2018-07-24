@@ -12,11 +12,11 @@ NOISE = -1
 
 
 def _dist(p, q):
-    return math.sqrt(np.power(p - q, 2).sum())
+    return math.sqrt(np.power(p - q, 2.0).sum())
 
 
 def _eps_neighborhood(p, q, eps):
-    return _dist(p, q) < eps
+    return _dist(p, q) <= eps
 
 
 def _region_query(m, point_id, eps):
@@ -40,6 +40,9 @@ def _expand_cluster(m, classifications, point_id, cluster_id, eps, min_points):
 
         while len(seeds) > 0:
             current_point = seeds[0]
+            beam, gate = np.array(m[:,current_point])[0], np.array(m[:,current_point])[1]
+            if (gate, beam) == (35, 9):
+                print('hello')
             results = _region_query(m, current_point, eps)
             if len(results) >= min_points:
                 for i in range(0, len(results)):
@@ -49,6 +52,9 @@ def _expand_cluster(m, classifications, point_id, cluster_id, eps, min_points):
                         if classifications[result_point] == UNCLASSIFIED:
                             seeds.append(result_point)
                         classifications[result_point] = cluster_id
+            # Doesn't make a difference on this scan.
+            #else:
+            #    classifications[current_point] = cluster_id
             seeds = seeds[1:]
         return True
 
@@ -82,7 +88,23 @@ def dbscan(m, eps, min_points):
 
 
 def test_dbscan():
-    m = np.matrix('1 1.2 0.8 3.7 3.9 3.6 10; 1.1 0.8 1 4 3.9 4.1 10')
-    eps = 0.5
-    min_points = 2
-    assert dbscan(m, eps, min_points) == [1, 1, 1, 2, 2, 2, None]
+    import pickle
+    data_dict = pickle.load(open("../pickles/sas_2018-02-07_scans.pickle", 'rb'))
+    m = np.matrix([data_dict['beam'][0], data_dict['gate'][0]])
+    #m = np.matrix('1 1.2 0.8 3.7 3.9 3.6 10; 1.1 0.8 1 4 3.9 4.1 10')
+    eps = 3
+    min_points = 6
+
+    cluster = np.array(dbscan(m, eps, min_points))
+    uniq_clusters = np.unique(cluster)
+    print(uniq_clusters)
+
+    import matplotlib.pyplot as plt
+    colors = ['r', 'g', 'c', 'b', 'm', 'y', 'k']
+    for c in uniq_clusters:
+        cluster_mask = cluster == c
+        plt.scatter(np.array(m[0, :])[0][cluster_mask], np.array(m[1, :])[0][cluster_mask], color=colors[c])
+        plt.savefig('regular DBSCAN')
+    #assert dbscan(m, eps, min_points) == [1, 1, 1, 2, 2, 2, None]
+
+test_dbscan()

@@ -49,7 +49,7 @@ class GridBasedDBSCAN():
     def _region_query(self, data, scan_i, grid_id):
         seeds = []
         hgt = self.g        #TODO should there be some rounding happening to accomidate discrete gate/wid?
-        wid = self.g / (self.f * self.C[grid_id[0], grid_id[1]])
+        wid = self.f #self.g / (self.f * self.C[grid_id[0], grid_id[1]])
         ciel_hgt = int(np.ceil(hgt))
         ciel_wid = int(np.ceil(wid))
 
@@ -62,19 +62,19 @@ class GridBasedDBSCAN():
             for b in range(b_min, b_max):
                 new_id = (g, b)
                 # Add the new point only if it falls within the ellipse defined by wid, hgt
-                #if self._in_ellipse(new_id, grid_id, hgt, wid):
-                for s in range(s_min, s_max):   # time filter
-                    if self._in_ellipse(new_id, grid_id, hgt, wid):
-                        possible_pts += 1
-                        if data[s][new_id]:   # Add the point to seeds only if there is a 1 in the sparse matrix there
-                            if np.abs(data[scan_i][grid_id] - data[s][new_id]) <= self.eps2:    #np.sqrt((vel1 - vel2)**2)
-                                seeds.append((s, new_id))
+                if self._in_ellipse(new_id, grid_id, hgt, wid):
+                    for s in range(s_min, s_max):   # time filter
+                        if self._in_ellipse(new_id, grid_id, hgt, wid):
+                            possible_pts += 1
+                            if data[s][new_id]:    # Add the point to seeds only if there is a 1 in the sparse matrix there
+                                if np.abs(data[scan_i][grid_id] - data[s][new_id]) <= self.eps2:    #np.sqrt((vel1 - vel2)**2)
+                                    seeds.append((s, new_id))
         return seeds, possible_pts
 
 
     def _in_ellipse(self, p, q, hgt, wid):
-        return ((q[0] - p[0])**2.0 / hgt**2.0 + (q[1] - p[1])**2.0 / wid**2.0) <= 1.0
-
+        #return ((q[0] - p[0])**2.0 / hgt**2.0 + (q[1] - p[1])**2.0 / wid**2.0) <= 1.0        # TODO <= or <???
+        return np.sqrt((q[0] - p[0])**2 + (q[1]-p[1])**2) <= self.f
 
     # TODO bug search for this part
     def _cluster_avg(self, data, grid_labels, cluster_id):
@@ -91,7 +91,7 @@ class GridBasedDBSCAN():
     def _expand_cluster(self, data, grid_labels, scan_i, grid_id, cluster_id):
         seeds, possible_pts = self._region_query(data, scan_i, grid_id)
 
-        k = possible_pts * self.pts_ratio
+        k = self.pts_ratio #possible_pts * self.pts_ratio
         if len(seeds) < k:
             grid_labels[scan_i][grid_id] = NOISE
             return False
@@ -104,9 +104,11 @@ class GridBasedDBSCAN():
 
             while len(seeds) > 0:
                 current_scan, current_grid = seeds[0][0], seeds[0][1]
-                #results, possible_pts = self._region_query(data, current_scan, current_grid, cluster_avg)
+                if current_grid == (35, 9):
+                    print('hello')
                 results, possible_pts = self._region_query(data, current_scan, current_grid)
-                k = possible_pts * self.pts_ratio
+
+                k = self.pts_ratio #possible_pts * self.pts_ratio
                 if len(results) >= k:
                     for i in range(0, len(results)):
                         result_scan, result_point = results[i][0], results[i][1]
@@ -117,7 +119,7 @@ class GridBasedDBSCAN():
                                 grid_labels[result_scan][result_point] = cluster_id
                                 # Update the cluster size and average (without looping through the whole dataset again)
                                 cluster_size += 1
-                                cluster_avg = (cluster_avg * cluster_size + data[result_scan][result_point]) / cluster_size
+                                cluster_avg = (cluster_avg * (cluster_size-1) + data[result_scan][result_point]) / cluster_size
                 seeds = seeds[1:]
             return True
 
@@ -194,10 +196,12 @@ if __name__ == '__main__':
     data_dict = pickle.load(open("../pickles/%s_scans.pickle" % rad_date, 'rb'))
 
     from scipy.stats import boxcox
-    scans_to_use = range(200) #len(data_dict['gate']))
-    values = [np.abs(data_dict['vel'][i]) for i in scans_to_use] #[[True]*len(data_dict['gate'][i]) for i in scans_to_use]
+    scans_to_use = range(1) #len(data_dict['gate']))
+    values = [np.array(list(range(len(data_dict['gate'][i])))).astype(float) for i in scans_to_use] #[data_dict['vel'][i].astype(int) for i in scans_to_use]
     data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam, values)
 
+    for value in values[0].astype(int):
+        print('%s;' % value, end='')
 
     """ Grid-based DBSCAN """
     from superdarn_cluster.FanPlot import FanPlot
@@ -209,10 +213,10 @@ if __name__ == '__main__':
     dr = 45
     dtheta = 3.3
     r_init = 180
-    f = 0.3
-    g = 2
-    pts_ratio = 0.3
-    eps2, d_eps = 30, 30
+    f = 3.0     # only f matters
+    g = 3.0
+    pts_ratio = 6
+    eps2, d_eps = 30.0, 30.0
     gdb = GridBasedDBSCAN(f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
     import time
     t0 = time.time()

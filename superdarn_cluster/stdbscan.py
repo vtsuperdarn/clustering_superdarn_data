@@ -1,6 +1,9 @@
 """
 Author: Lucas Miguel Simões Ponce
 Source: https://github.com/eubr-bigsea/py-st-dbscan
+
+
+This implementation does not appear to do ANYTHING with non-spatial non-temporal values! No eps2 or d_eps. Not useful.
 """
 
 from datetime import timedelta
@@ -115,7 +118,6 @@ if __name__ == '__main__':
     power = data_flat_unscaled[:, 4]
     beam = data_flat_unscaled[:, 0]
     vel = data_flat_unscaled[:, 2]
-
     time = data_flat_unscaled[:, 6]
     #time = (time - np.floor(time)) * 24 * 60 * 60 / secs_per_measurement
 
