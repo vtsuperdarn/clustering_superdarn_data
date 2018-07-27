@@ -1,18 +1,23 @@
-from superdarn_cluster.GridBasedDBSCAN_fast import GridBasedDBSCAN, dict_to_csr_sparse
+from superdarn_cluster.STGBDBSCAN_fast import STGBDBSCAN, dict_to_csr_sparse
 import os
 import numpy as np
+import time
 from superdarn_cluster.utilities import plot_is_gs_colormesh
 
-# Want to do this with a few different options:
-# With the time DBSCAN, without the time DBSCAN
-#
-# Various classification method - Blanchard, AJ's, 15 m/s
-# Keep track of everything, and just work your way through it slowly. It's just plug and chug.
-
 """ Change this to specify what experiment you are running """
-dir = '7-22-18 scan by scan GBDBSCAN GS IS flags/'
+dir = '../experiments/7-25-18 GBDBSCAN + Ratio Vel (scan x scan)/'
+clust_dir = 'cluster fanplots/'
+vel_dir = 'velocity fanplots/'           # It is not necessary to generate fanplots for each of these similar scripts - they will all be the same.
 if not os.path.exists(dir):
     os.makedirs(dir)
+if not os.path.exists(dir + clust_dir):
+    os.makedirs(dir + clust_dir)
+if not os.path.exists(dir + vel_dir):
+    os.makedirs(dir + vel_dir)
+
+gs_threshold = 'code'
+
+stats = open(dir + '0_stats.txt', 'w')
 
 """ Get data """
 import pickle
@@ -30,60 +35,71 @@ def blanchard_gs_flg(v, w, type='code'):
     if type == 'code':
         return med_vel < 30 - med_wid * 1.0 / 3.0                             # Found in RST code
 
-""" Experiment 1: Running scan-by-scan GBDB and classifying output """
-scans_to_use = range(len(data_dict['vel']))
-gs_threshold = 'code'
-data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam, scans_to_use)
+gs_label = []
 
+""" Experiment: Running scan-by-scan velocity DB and classifying output """
+# from scipy.stats import boxcox
+scans_to_use = range(len(data_dict['gate']))
+values = [np.abs(data_dict['vel'][i]) for i in scans_to_use]
+# The scaling trick to get multiple DBSCAN eps does not work with my _fast versions of DBSCAN, because they are
+# still based on searching in a grid-based manner - look at beam +- eps, gate +- eps to find points
+
+data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam, values)
 from superdarn_cluster.FanPlot import FanPlot
 import matplotlib.pyplot as plt
 
-# Solid params across the board: f=0.3, g=2
 dr = 45
 dtheta = 3.3
 r_init = 180
-f = 0.3
-g = 2
-eps2 = 0.5
-d_eps = 0.5
-pts_ratio = 0.3
-gdb = GridBasedDBSCAN(f, g, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
-import time
+f, g = 0.3, 2.0
+pts_ratio = 0.5
+eps2, d_eps = 1.0, 1.0
+stgbdb = STGBDBSCAN(f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init=r_init)
 
-t = 0
+dt = 0
 vel = data_dict['vel']
-gs_label = []
-""" Run GBDBSCAN scan by scan and determine IS/GS label """
 for i in scans_to_use:
+    """ Run STDB """
     t0 = time.time()
-    labels = gdb.fit(data[i], data_i[i])
-    dt = time.time() - t0
-    t += dt
+    labels = stgbdb.fit([data[i]], [data_i[i]])        # hacky fix
+    dt += time.time() - t0
 
-    unique_clusters = np.unique(labels)
-
-    print('Grid-based DBSCAN Clusters: ', unique_clusters)
+    unique_clusters = np.unique(np.hstack(labels))
+    stats.write('Vel DBSCAN Clusters: ' + str(unique_clusters) + '\n')
     cluster_colors = list(
-        plt.cm.plasma(
-            np.linspace(0, 1, len(unique_clusters)+1)))  # one extra unused color at index 0 (no cluster label == 0)
+        plt.cm.jet(
+            np.linspace(0, 1, len(unique_clusters) + 1)))  # one extra unused color at index 0 (no cluster label == 0)
+    # randomly re-arrange colors for contrast in adjacent clusters
+    np.random.seed(0)
+    np.random.shuffle(cluster_colors)
+
     cluster_colors.append((0, 0, 0, 1))  # black for noise
 
-    """ Cluster Fanplot """
+    """ Cluster fanplot """
+    clusters = np.unique(labels[0])
+    # Plot a fanplot
     fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
-    for c in unique_clusters:
-        label_mask = labels == c
+    for c in clusters:
+        label_mask = labels[0] == c
         fanplot.plot(data_dict['beam'][i][label_mask], data_dict['gate'][i][label_mask], cluster_colors[c])
-    plt.title('Grid-based DBSCAN fanplot\nf = %.2f    g = %d    pts_ratio = %.2f' % (f, g, pts_ratio))
-    filename = '%s_f%.2f_g%d_ptRatio%.2f_scan%d_fanplot.png' % (rad_date, f, g, pts_ratio, i)
+    plt.title('Vel DBSCAN fanplot\nf = %.2f    g = %.2f    eps2 = %.2f    deps = %.2f    ptsRatio = %.2f'
+              % (f, g, eps2, d_eps, pts_ratio))
+    filename = '%s_f%.2f_g%.2f_2eps%.2f_deps%.2f_ptratio%.2f_scan%d_fanplot.png' % (rad_date, f, g, eps2, d_eps, pts_ratio, i)
     # plt.show()
-    plt.savefig(dir + filename)
+    plt.savefig(dir + clust_dir + filename)
     plt.close()
 
-    """ Velocity Fanplot """
+    """ Velocity fanplot """
     # Plot velocity fanplot
     fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
-    vel_step = 5
-    vel_ranges = list(range(-50, 51, vel_step))
+    # BoxCox velcoity scaling
+    #vel_step = 0.1
+    #vel_ranges = list(np.linspace(-4, 4, 21))
+    #vel_ranges.insert(0, -20)
+    #vel_ranges.append(20)
+    # Regular velocity scaling
+    vel_step = 25
+    vel_ranges = list(range(-200, 201, vel_step))
     vel_ranges.insert(0, -9999)
     vel_ranges.append(9999)
     cmap = plt.cm.jet       # use 'viridis' to make this redgreen colorblind proof
@@ -91,12 +107,14 @@ for i in scans_to_use:
     for s in range(len(vel_ranges) - 1):
         step_mask = (vel[i] >= vel_ranges[s]) & (vel[i] <= (vel_ranges[s+1]))
         fanplot.plot(data_dict['beam'][i][step_mask], data_dict['gate'][i][step_mask], vel_colors[s])
+
     filename = 'vel_scan%d_fanplot.png' % (i)
     fanplot.add_colorbar(vel_ranges, cmap)
     #plt.show()
-    plt.savefig(dir + filename)
+    plt.savefig(dir + vel_dir + filename)
     plt.close()
 
+    labels = labels[0]  # hacky fix
 
     """ Assign GS/IS labels 
     Here, the Ribiero method does not make sense, because none of the clusters have a duration - its 1 scan at a time.
@@ -110,6 +128,9 @@ for i in scans_to_use:
         gs_flg = blanchard_gs_flg(data_dict['vel'][i][label_mask], data_dict['wid'][i][label_mask], gs_threshold)
         gs_labels_i[label_mask] = gs_flg
     gs_label.append(gs_labels_i)
+
+stats.write('Time elapsed: %.2f s\n' % dt)
+stats.close()
 
 """ Plot IS/GS on RTI plot """
 gs_label = np.hstack(gs_label)              #TODO maybe have label written to the data_dict, then it can save a pickle as output
@@ -127,9 +148,5 @@ for b in range(nbeam):
     name = 'gs is colormesh %s threshold beam %d' % (gs_threshold, b)
     plt.title(name)
     plt.savefig(dir + name + '.png')
-
-
-
-print('Time elapsed: %.2f s' % t)
 
 

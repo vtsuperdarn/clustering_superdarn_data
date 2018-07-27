@@ -9,6 +9,8 @@ e.g.,
 [14, 75, 3.5]
 """
 
+# TODO this may be buggy / out of date
+
 import numpy as np
 UNCLASSIFIED = False
 NOISE = -1

@@ -1,101 +1,117 @@
 """
-Grid-based DBSCAN
+STDBSCAN
 Author: Esther Robb
 
-This is the fast implementation of Grid-based DBSCAN.
+This is the fast implementation of STDBSCAN.
 It uses a sparse Boolean array of data of size (num_grids) x (num_beams)
 The data structure is why it is able to run faster - instead of checking all points to
 find neighbors, it only checks adjacent points.
 
-Complete implementation.
-Confirmed to give the same output as GridBasedDBSCAN_simple.py.
 """
+
+#TODO this has a lot of remnants of GBDBSCAN that are not needed
 
 import numpy as np
 
 UNCLASSIFIED = 0
 NOISE = -1
 
-class GridBasedDBSCAN():
+class STDBSCAN():
 
-    def __init__(self, f, g, pts_ratio, ngate, nbeam, dr, dtheta, r_init=0):
-        dtheta = dtheta * np.pi / 180.0
-        self.C = np.zeros((ngate, nbeam))
-        for gate in range(ngate):
-            for beam in range(nbeam):
-                # This is the ratio between radial and angular distance for each point. Across a row it's all the same, consider removing j.
-                self.C[gate, beam] = self._calculate_ratio(dr, dtheta, gate, beam, r_init=r_init)
-        self.g = g
-        self.f = f
-        print('Max beam_eps: ', np.max(self.g / (self.f * self.C)))
-        print('Min beam_eps: ', np.min(self.g / (self.f * self.C)))
+    def __init__(self, eps1, eps2, d_eps, pts_ratio, ngate, nbeam):
+        self.eps1 = eps1
+        self.eps2 = eps2
+        self.d_eps = d_eps
         self.pts_ratio = pts_ratio
         self.ngate = ngate
         self.nbeam = nbeam
 
 
-    # Input for grid-based DBSCAN:
-    # C matrix calculated based on sensor data.
-    # There is very little variance from beam to beam for our radars - down to the 1e-16 level.
-    def _calculate_ratio(self, dr, dt, i, j, r_init=0):
-        r_init, dr, dt, i, j = float(r_init), float(dr), float(dt), float(i), float(j)
-        cij = (r_init + dr * i) / (2.0 * dr) * (np.sin(dt * (j + 1.0) - dt * j) + np.sin(dt * j - dt * (j - 1.0)))
-        return cij
-
-
-    # add scan id here
-    def _region_query(self, data, scan_i, grid_id):
+    def _region_query(self, data, data_i, scan_i, grid_id, cluster_id, grid_labels):
         seeds = []
-        hgt = self.g        #TODO should there be some rounding happening to accomidate discrete gate/wid?
-        wid = self.g / (self.f * self.C[grid_id[0], grid_id[1]])
-        ciel_hgt = int(np.ceil(hgt))
-        ciel_wid = int(np.ceil(wid))
-
+        box_size = int(np.ceil(self.eps1))
         # Check for neighbors in a box of shape ciel(2*wid), ciel(2*hgt) around the point
-        g_min, g_max = max(0, grid_id[0] - ciel_hgt), min(self.ngate, grid_id[0] + ciel_hgt + 1)
-        b_min, b_max = max(0, grid_id[1] - ciel_wid), min(self.nbeam, grid_id[1] + ciel_wid + 1)
+        g_min, g_max = max(0, grid_id[0] - box_size), min(self.ngate, grid_id[0] + box_size + 1)
+        b_min, b_max = max(0, grid_id[1] - box_size), min(self.nbeam, grid_id[1] + box_size + 1)
         s_min, s_max = max(0, scan_i-1), min(len(data), scan_i+2)       # look at +- 1 scan
         possible_pts = 0
-        for g in range(g_min, g_max):
-            for b in range(b_min, b_max):
+        for b in range(b_min, b_max):
+            for g in range(g_min, g_max):
                 new_id = (g, b)
                 # Add the new point only if it falls within the ellipse defined by wid, hgt
-                #if self._in_ellipse(new_id, grid_id, hgt, wid):
-                for s in range(s_min, s_max):   # time filter
-                    if self._in_ellipse(new_id, grid_id, hgt, wid):
-                        possible_pts += 1
-                        if data[s][new_id]:   # Add the point to seeds only if there is a 1 in the sparse matrix there
-                            seeds.append((s, new_id))
+                if self._in_range(new_id, grid_id):
+                    for s in range(s_min, s_max):   # time filter
+                        if self._in_range(new_id, grid_id):
+                            possible_pts += 1
+                            # It could use data_i to test if it's a valid point! More robust.
+                            # In fact... do we even need the sparse matrix in that case? LOL
+                            new_id_label = grid_labels[s][new_id]
+                            # This might still be less expensive than doing the ellipse calculation for every single point
+                            if (new_id in data_i[s]) and (new_id_label == UNCLASSIFIED or new_id_label == NOISE or new_id_label == cluster_id):
+                                rel_diff = (data[scan_i][grid_id] - data[s][new_id]) / data[scan_i][grid_id]
+                                if np.abs(rel_diff) <= self.eps2:    #np.sqrt((vel1 - vel2)**2)
+                                #if np.abs(data[scan_i][grid_id] - data[s][new_id]) <= self.eps2:    #np.sqrt((vel1 - vel2)**2)
+                                    seeds.append((s, new_id))
         return seeds, possible_pts
 
 
-    def _in_ellipse(self, p, q, hgt, wid):
-        return ((q[0] - p[0])**2.0 / hgt**2.0 + (q[1] - p[1])**2.0 / wid**2.0) <= 1.0
+    def _in_range(self, p, q):
+        return np.sqrt((q[0] - p[0])**2 + (q[1]-p[1])**2) <= self.eps1
+
+    def _cluster_avg(self, data, grid_labels, cluster_id):
+        sum = 0.0
+        size = 0.0
+        for scan in range(len(grid_labels)):
+            cluster_mask = grid_labels[scan] == cluster_id
+            data_i = data[scan][cluster_mask]
+            sum += data_i.sum()
+            size += data_i.shape[1]
+        return sum/size, size
 
 
-    def _expand_cluster(self, data, grid_labels, scan_i, grid_id, cluster_id):
-        seeds, possible_pts = self._region_query(data, scan_i, grid_id)
+    def _expand_cluster(self, data, data_i, grid_labels, scan_i, grid_id, cluster_id):
+        # Find all the neighbors (including self) and the number of possible points (for grid-based DBSCAN ptRatio)
+        seeds, possible_pts = self._region_query(data, data_i, scan_i, grid_id, cluster_id, grid_labels)
 
-        k = possible_pts * self.pts_ratio
+        k = self.pts_ratio # possible_pts * self.pts_ratio
         if len(seeds) < k:
-            grid_labels[scan_i][grid_id] = NOISE
+            grid_labels[scan_i][grid_id] = NOISE                    # Too small, classify as noise (may be clustered later)
             return False
-        else:
-            grid_labels[scan_i][grid_id] = cluster_id
-            for seed_id in seeds:
+        # Create a new cluster
+        else:                                                       # Create a new cluster
+            grid_labels[scan_i][grid_id] = cluster_id               # TODO this line is unnecessary because grid_id is in seeds
+            for seed_id in seeds:                                   # Add the current point and all neighbors to this cluster
                 grid_labels[seed_id[0]][seed_id[1]] = cluster_id
 
-            while len(seeds) > 0:
+            # Calculate the average of the first group of points first, for later use to compare with d_eps
+            cluster_avg, cluster_size = self._cluster_avg(data, grid_labels, cluster_id)
+
+            while len(seeds) > 0:                                       # Find the neighbors of all neighbors
                 current_scan, current_grid = seeds[0][0], seeds[0][1]
-                results, possible_pts = self._region_query(data, current_scan, current_grid)
-                k = possible_pts * self.pts_ratio
-                if len(results) >= k:
+                results, possible_pts = self._region_query(data, data_i, current_scan, current_grid, cluster_id, grid_labels)
+
+                k = self.pts_ratio # possible_pts * self.pts_ratio
+                if len(results) >= k:                                  # If this neighbor also has sufficient neighbors, add them to cluster
                     for i in range(0, len(results)):
                         result_scan, result_point = results[i][0], results[i][1]
+                        # Only add a neighbor to this cluster if it hasn't already been assigned a cluster (noise is not a cluster)
                         if grid_labels[result_scan][result_point] == UNCLASSIFIED or grid_labels[result_scan][result_point] == NOISE:
-                            if grid_labels[result_scan][result_point] == UNCLASSIFIED:
-                                seeds.append((result_scan, result_point))
-                            grid_labels[result_scan][result_point] = cluster_id
+                            # Compare d_eps with the existing cluster average
+                            rel_diff = (cluster_avg - data[result_scan][result_point]) / cluster_avg
+                            if np.abs(rel_diff) <= self.d_eps:
+                            #if np.abs(cluster_avg - data[result_scan][result_point]) <= self.d_eps:
+                                #print(cluster_avg)
+                                # Look for more neighbors only if it wasn't labelled noise previously (few neighbors)
+                                if grid_labels[result_scan][result_point] != NOISE:
+                                    seeds.append((result_scan, result_point))
+                                grid_labels[result_scan][result_point] = cluster_id
+                                # Update the cluster size and average (without looping through the whole dataset again)
+                                cluster_size += 1
+                                cluster_avg = (cluster_avg * (cluster_size-1) + data[result_scan][result_point]) / cluster_size
+                #else:
+                #    grid_labels[current_scan][current_grid] = cluster_id
+                #    cluster_size += 1
+                #    cluster_avg = (cluster_avg * (cluster_size-1) + data[current_scan][current_grid]) / cluster_size
                 seeds = seeds[1:]
             return True
 
@@ -125,7 +141,7 @@ class GridBasedDBSCAN():
             for grid_id in m_i:
                 # Adaptively change one of the epsilon values and the min_points parameter using the C matrix
                 if grid_labels[scan_i][grid_id] == UNCLASSIFIED:
-                    if self._expand_cluster(data, grid_labels, scan_i, grid_id, cluster_id):
+                    if self._expand_cluster(data, data_i, grid_labels, scan_i, grid_id, cluster_id):
                         cluster_id = cluster_id + 1
 
             scan_pt_labels = [grid_labels[scan_i][grid_id] for grid_id in m_i]
@@ -133,31 +149,22 @@ class GridBasedDBSCAN():
         return point_labels
 
 
-def _calculate_ratio(dr, dt, i, j, r_init=0):
-    r_init, dr, dt, i, j = float(r_init), float(dr), float(dt), float(i), float(j)
-    cij = (r_init + dr * i) / (2.0 * dr) * (np.sin(dt * (j + 1.0) - dt * j) + np.sin(dt * j - dt * (j - 1.0)))
-    return cij
-
-
-def dict_to_csr_sparse(data_dict, values):
+def dict_to_csr_sparse(data_dict, ngate, nbeam, values, gate_scale = 1.0, beam_scale = 1.0):
     from scipy import sparse
     gate = data_dict['gate']
     beam = data_dict['beam']
-    ngate = int(data_dict['nrang'])
-    nbeam = int(data_dict['nbeam'])
     nscan = len(values)
     data = []
     data_i = []
     for i in range(nscan):
-        m = sparse.csr_matrix((values[i], (gate[i], beam[i])), shape=(ngate, nbeam))
+        m = sparse.csr_matrix((values[i], (gate[i] / gate_scale, beam[i] / beam_scale)), shape=(ngate, nbeam))
         m_i = list(zip(np.array(gate[i]).astype(int), np.array(beam[i]).astype(int)))
         data.append(m)
         data_i.append(m_i)
     return data, data_i
 
 # TODO what about when there's no data... this assumes there is always data
-# TODO I don't think the non-spatial value part of this is working well, just based on the velocity plot
-# TODO is the time part of this working properly? Looks to be. Try a time epsilon? Smaller g?
+# TODO can these scripts be converted to *not* use the CSR matrix, but just do a smarter search, and still be fast?
 
 if __name__ == '__main__':
     """ Fake data 
@@ -174,10 +181,14 @@ if __name__ == '__main__':
     data_dict = pickle.load(open("../pickles/%s_scans.pickle" % rad_date, 'rb'))
 
     from scipy.stats import boxcox
-    scans_to_use = range(100) #len(data_dict['gate']))
-    values = [np.abs(data_dict['vel'][i]) for i in scans_to_use] #[[True]*len(data_dict['gate'][i]) for i in scans_to_use]
+    scans_to_use = range(3) #len(data_dict['gate']))
+    values = [np.abs(data_dict['vel'][i]).astype(int) for i in scans_to_use]
+    #values = [np.array(list(range(1, len(data_dict['gate'][i])+1))).astype(float) for i in scans_to_use]
+    #values = [[1.0]*len(data_dict['gate'][i]) for i in scans_to_use]
     data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam, values)
 
+    for value in values[0].astype(int):
+        print('%s;' % value, end='')
 
     """ Grid-based DBSCAN """
     from superdarn_cluster.FanPlot import FanPlot
@@ -189,11 +200,10 @@ if __name__ == '__main__':
     dr = 45
     dtheta = 3.3
     r_init = 180
-    f = 0.2
-    g = 1
-    pts_ratio = 0.6
-    eps2, d_eps = 30, 30
-    gdb = GridBasedDBSCAN(f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
+    eps1 = 3.0
+    pts_ratio = 6
+    eps2, d_eps = 20.0, 20.0
+    gdb = STDBSCAN(eps1, eps2, d_eps, pts_ratio, ngate, nbeam)
     import time
     t0 = time.time()
     labels = gdb.fit(data, data_i)

@@ -7,6 +7,8 @@ import numpy as np
 from superdarn_cluster.dbtools import flatten_data_11_features, read_db
 import datetime as dt
 
+# TODO slate for removal, out of date
+
 start_time = dt.datetime(2018, 2, 7, 14)
 end_time = dt.datetime(2018, 2, 7, 14, 15)
 rad = 'sas'

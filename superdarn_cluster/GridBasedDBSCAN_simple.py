@@ -10,6 +10,8 @@ It uses an array of radar data points in this format:
 as opposed to the grid of size [num_beams, num_gates] filled with 0's and 1's used by the faster implementation.
 """
 
+# TODO this may be buggy / out of date
+
 import numpy as np
 
 UNCLASSIFIED = False

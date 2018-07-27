@@ -10,6 +10,8 @@ find neighbors, it only checks adjacent points.
 Adds 2 velocity epsilons, in the same way as ST-DBSCAN
 """
 
+# TODO this may be buggy / out of date / incorrect. See ST_GB_DBSCAN
+
 import numpy as np
 
 UNCLASSIFIED = 0

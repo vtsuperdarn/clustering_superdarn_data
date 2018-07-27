@@ -7,8 +7,6 @@ It uses a sparse Boolean array of data of size (num_grids) x (num_beams)
 The data structure is why it is able to run faster - instead of checking all points to
 find neighbors, it only checks adjacent points.
 
-Complete implementation.
-Confirmed to give the same output as GridBasedDBSCAN_simple.py.
 """
 
 import numpy as np
@@ -16,7 +14,7 @@ import numpy as np
 UNCLASSIFIED = 0
 NOISE = -1
 
-class GridBasedDBSCAN():
+class STGBDBSCAN():
 
     def __init__(self, f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init=0):
         dtheta = dtheta * np.pi / 180.0
@@ -46,10 +44,10 @@ class GridBasedDBSCAN():
 
 
     # add scan id here
-    def _region_query(self, data, scan_i, grid_id):
+    def _region_query(self, data, data_i, scan_i, grid_id, cluster_id, grid_labels):
         seeds = []
         hgt = self.g        #TODO should there be some rounding happening to accomidate discrete gate/wid?
-        wid = self.f #self.g / (self.f * self.C[grid_id[0], grid_id[1]])
+        wid = self.g / (self.f * self.C[grid_id[0], grid_id[1]])        # Update f for GBDB according to current position
         ciel_hgt = int(np.ceil(hgt))
         ciel_wid = int(np.ceil(wid))
 
@@ -58,23 +56,26 @@ class GridBasedDBSCAN():
         b_min, b_max = max(0, grid_id[1] - ciel_wid), min(self.nbeam, grid_id[1] + ciel_wid + 1)
         s_min, s_max = max(0, scan_i-1), min(len(data), scan_i+2)       # look at +- 1 scan
         possible_pts = 0
-        for g in range(g_min, g_max):
-            for b in range(b_min, b_max):
+        for b in range(b_min, b_max):
+            for g in range(g_min, g_max):
                 new_id = (g, b)
                 # Add the new point only if it falls within the ellipse defined by wid, hgt
                 if self._in_ellipse(new_id, grid_id, hgt, wid):
                     for s in range(s_min, s_max):   # time filter
                         if self._in_ellipse(new_id, grid_id, hgt, wid):
                             possible_pts += 1
-                            if data[s][new_id]:    # Add the point to seeds only if there is a 1 in the sparse matrix there
-                                if np.abs(data[scan_i][grid_id] - data[s][new_id]) <= self.eps2:    #np.sqrt((vel1 - vel2)**2)
+                            new_id_label = grid_labels[s][new_id]
+                            # This is still less expensive than doing the ellipse calculation for every single point
+                            if (new_id in data_i[s]) and (new_id_label == UNCLASSIFIED or new_id_label == NOISE or new_id_label == cluster_id):
+                                rel_diff = (data[scan_i][grid_id] - data[s][new_id]) / data[scan_i][grid_id]
+                                if np.abs(rel_diff) <= self.eps2:
+                                #if np.abs(data[scan_i][grid_id] - data[s][new_id]) <= self.eps2:    #np.sqrt((vel1 - vel2)**2)
                                     seeds.append((s, new_id))
         return seeds, possible_pts
 
 
     def _in_ellipse(self, p, q, hgt, wid):
-        #return ((q[0] - p[0])**2.0 / hgt**2.0 + (q[1] - p[1])**2.0 / wid**2.0) <= 1.0        # TODO <= or <???
-        return np.sqrt((q[0] - p[0])**2 + (q[1]-p[1])**2) <= self.f
+        return ((q[0] - p[0])**2.0 / hgt**2.0 + (q[1] - p[1])**2.0 / wid**2.0) <= 1.0        # TODO <= or <???
 
     # TODO bug search for this part
     def _cluster_avg(self, data, grid_labels, cluster_id):
@@ -88,38 +89,53 @@ class GridBasedDBSCAN():
         return sum/size, size
 
 
-    def _expand_cluster(self, data, grid_labels, scan_i, grid_id, cluster_id):
-        seeds, possible_pts = self._region_query(data, scan_i, grid_id)
+    def _expand_cluster(self, data, data_i, grid_labels, scan_i, grid_id, cluster_id):
+        # Find all the neighbors (including self) and the number of possible points (for grid-based DBSCAN ptRatio)
+        seeds, possible_pts = self._region_query(data, data_i, scan_i, grid_id, cluster_id, grid_labels)
 
-        k = self.pts_ratio #possible_pts * self.pts_ratio
+        k = possible_pts * self.pts_ratio
         if len(seeds) < k:
-            grid_labels[scan_i][grid_id] = NOISE
+            grid_labels[scan_i][grid_id] = NOISE                    # Too small, classify as noise (may be clustered later)
             return False
-        else:
-            grid_labels[scan_i][grid_id] = cluster_id
-            for seed_id in seeds:
+        # Create a new cluster
+        else:                                                       # Create a new cluster
+            grid_labels[scan_i][grid_id] = cluster_id               # TODO this line is unnecessary because grid_id is in seeds
+            for seed_id in seeds:                                   # Add the current point and all neighbors to this cluster
                 grid_labels[seed_id[0]][seed_id[1]] = cluster_id
 
+            # So this is where mine is different - I calculate the cluster average of the first cluster first, instead
+            # of updating it as new points are found. This works worse because...?
+
+            # Calculate the average of the first group of points first, for later use to compare with d_eps
             cluster_avg, cluster_size = self._cluster_avg(data, grid_labels, cluster_id)
 
-            while len(seeds) > 0:
+            # Mine runs in a different order because of the GB stuff.... Is that all there is too it? This is whats wrong with STDB.
+            while len(seeds) > 0:                                       # Find the neighbors of all neighbors
                 current_scan, current_grid = seeds[0][0], seeds[0][1]
-                if current_grid == (35, 9):
-                    print('hello')
-                results, possible_pts = self._region_query(data, current_scan, current_grid)
+                results, possible_pts = self._region_query(data, data_i, current_scan, current_grid, cluster_id, grid_labels)
 
-                k = self.pts_ratio #possible_pts * self.pts_ratio
-                if len(results) >= k:
+                k = possible_pts * self.pts_ratio
+                if len(results) >= k:                                  # If this neighbor also has sufficient neighbors, add them to cluster
                     for i in range(0, len(results)):
                         result_scan, result_point = results[i][0], results[i][1]
+                        # Only add a neighbor to this cluster if it hasn't already been assigned a cluster (noise is not a cluster)
                         if grid_labels[result_scan][result_point] == UNCLASSIFIED or grid_labels[result_scan][result_point] == NOISE:
-                            if np.abs(cluster_avg - data[result_scan][result_point]) <= self.d_eps:
-                                if grid_labels[result_scan][result_point] == UNCLASSIFIED:
+                            # Compare d_eps with the existing cluster average
+                            rel_diff = (cluster_avg - data[result_scan][result_point]) / cluster_avg
+                            if np.abs(rel_diff) <= self.d_eps:
+                            #if np.abs(cluster_avg - data[result_scan][result_point]) <= self.d_eps:
+                                #print(cluster_avg)
+                                # Look for more neighbors only if it wasn't labelled noise previously (few neighbors)
+                                if grid_labels[result_scan][result_point] != NOISE:
                                     seeds.append((result_scan, result_point))
                                 grid_labels[result_scan][result_point] = cluster_id
                                 # Update the cluster size and average (without looping through the whole dataset again)
                                 cluster_size += 1
                                 cluster_avg = (cluster_avg * (cluster_size-1) + data[result_scan][result_point]) / cluster_size
+                #else:
+                #    grid_labels[current_scan][current_grid] = cluster_id
+                #    cluster_size += 1
+                #    cluster_avg = (cluster_avg * (cluster_size-1) + data[current_scan][current_grid]) / cluster_size
                 seeds = seeds[1:]
             return True
 
@@ -149,7 +165,7 @@ class GridBasedDBSCAN():
             for grid_id in m_i:
                 # Adaptively change one of the epsilon values and the min_points parameter using the C matrix
                 if grid_labels[scan_i][grid_id] == UNCLASSIFIED:
-                    if self._expand_cluster(data, grid_labels, scan_i, grid_id, cluster_id):
+                    if self._expand_cluster(data, data_i, grid_labels, scan_i, grid_id, cluster_id):
                         cluster_id = cluster_id + 1
 
             scan_pt_labels = [grid_labels[scan_i][grid_id] for grid_id in m_i]
@@ -196,8 +212,10 @@ if __name__ == '__main__':
     data_dict = pickle.load(open("../pickles/%s_scans.pickle" % rad_date, 'rb'))
 
     from scipy.stats import boxcox
-    scans_to_use = range(1) #len(data_dict['gate']))
-    values = [np.array(list(range(len(data_dict['gate'][i])))).astype(float) for i in scans_to_use] #[data_dict['vel'][i].astype(int) for i in scans_to_use]
+    scans_to_use = range(3) #len(data_dict['gate']))
+    values = [np.abs(data_dict['vel'][i]).astype(int) for i in scans_to_use]
+    #values = [np.array(list(range(1, len(data_dict['gate'][i])+1))).astype(float) for i in scans_to_use]
+    #values = [[1.0]*len(data_dict['gate'][i]) for i in scans_to_use]
     data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam, values)
 
     for value in values[0].astype(int):
@@ -216,8 +234,8 @@ if __name__ == '__main__':
     f = 3.0     # only f matters
     g = 3.0
     pts_ratio = 6
-    eps2, d_eps = 30.0, 30.0
-    gdb = GridBasedDBSCAN(f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
+    eps2, d_eps = 20.0, 20.0
+    gdb = STGBDBSCAN(f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
     import time
     t0 = time.time()
     labels = gdb.fit(data, data_i)

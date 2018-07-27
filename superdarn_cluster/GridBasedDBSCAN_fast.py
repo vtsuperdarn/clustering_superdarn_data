@@ -16,6 +16,9 @@ import numpy as np
 UNCLASSIFIED = 0
 NOISE = -1
 
+# TODO what is the difference between GBDBSCAN_timefilter_fast and this? this also seems to do a timefilter... But it's an old
+# version of the same code.
+# TODO slate for removal?
 
 class GridBasedDBSCAN():
 
