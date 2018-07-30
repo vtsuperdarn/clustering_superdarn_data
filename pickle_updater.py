@@ -79,7 +79,7 @@ def gbdbscan_timefilter(data_dict, stats, gs_threshold='code'):
     dt = time.time() - t0
     stats.write('Time elapsed: %.2f s\n' % dt)
     unique_clusters = np.unique(np.hstack(labels))
-    stats.write('Grid-based DBSCAN Clusters: %s\n' + str(unique_clusters))
+    stats.write('Grid-based DBSCAN Clusters: %s\n' % str(unique_clusters))
 
     """ Get GS/IS labels for each cluster """
     vel_flat = np.hstack(np.array(data_dict['vel'])[scans_to_use])
@@ -150,7 +150,7 @@ def gbdbscan(data_dict, stats, gs_threshold='code'):
     return gs_flgs, labels
 
 
-rad = 'cvw'
+rad = 'sas'
 dates = [(2018, 2, 7), (2017, 5, 30), (2017, 8, 20), (2017, 10, 16), (2017, 12, 19), (2018, 2, 7), (2018, 4, 5)]
 alg = 'GBDBSCAN + Ribiero (timefilter)'
 dir = './pickles/%s/' % alg
