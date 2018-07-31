@@ -1,3 +1,52 @@
+# TODO rename this to 'plot_utils' and non-plot stuff elsewhere
+
+def blanchard_gs_flg(v, w, type='code'):
+    import numpy as np
+    med_vel = np.median(np.abs(v))
+    med_wid = np.median(np.abs(w))
+    if type == 'paper':
+        return med_vel < 33.1 + 0.139 * med_wid - 0.00133 * (med_wid ** 2)  # Found in 2009 paper
+    if type == 'code':
+        return med_vel < 30 - med_wid * 1.0 / 3.0  # Found in RST code
+
+
+def ribiero_gs_flg(v, t):
+    import numpy as np
+    L = np.abs(t[-1] - t[0]) * 24
+    high = np.sum(np.abs(v) > 15.0)
+    low = np.sum(np.abs(v) <= 15.0)
+    if low == 0:
+        R = 1.0  # TODO hmm... this works right?
+    else:
+        R = high / low  # High vel / low vel ratio
+    # See Figure 4 in Ribiero 2011
+    if L > 14.0:
+        return True  # GS
+    elif L > 3:
+        if R > 0.2:
+            return False  # IS
+        else:
+            return True
+    elif L > 2:
+        if R > 0.33:
+            return False
+        else:
+            return True
+    elif L > 1:
+        if R > 0.475:
+            return False
+        else:
+            return True
+    # Addition by Burrell 2018 "Solar influences..."
+    else:
+        if R > 0.5:
+            return False
+        else:
+            return True
+    # Classic Ribiero 2011
+    # else:
+    #    return False
+
 def genCmap(param, scale, colors='lasse', lowGray=False):
     """From DavitPy https://github.com/vtsuperdarn/davitpy
 
@@ -229,7 +278,6 @@ def plot_clusters_colormesh(x, x_name, y, y_name, cluster_membership):
     x_max = np.max(x)
 
     color_mesh = np.zeros((x_size, y_size)) * np.nan
-    num_clusters = len(cluster_membership)
     plot_param = 'velocity'
 
     # Create a (num times) x (num range gates) map of cluster values.
@@ -254,7 +302,6 @@ def plot_clusters_colormesh(x, x_name, y, y_name, cluster_membership):
     cmap, norm, bounds = genCmap(plot_param, [0, len(cluster_membership)],
                                                  colors = 'lasse',
                                                  lowGray = False)
-
     cmap.set_bad('w', alpha=0.0)
 
     pos=[.1, .1, .76, .72]
@@ -264,7 +311,6 @@ def plot_clusters_colormesh(x, x_name, y, y_name, cluster_membership):
     ax.set_ylabel(y_name)
     #ax.set_title(title_str+' '+start_time.strftime("%d %b %Y") + ' ' + rad.upper())
     colormesh = ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
-
 
     # Draw the colorbar.
     cb = drawCB(fig, colormesh, cmap, norm, map_plot=0,
@@ -319,7 +365,6 @@ def plot_is_gs_colormesh(ax, unique_time, time_flat, gate, gs_flg, num_range_gat
     import matplotlib as mpl
     from matplotlib.dates import DateFormatter
 
-    #unique_time = np.unique(time_flat)
     num_times = len(unique_time)
     color_mesh = np.zeros((num_times, num_range_gates)) * np.nan
 
@@ -351,11 +396,17 @@ def plot_is_gs_colormesh(ax, unique_time, time_flat, gate, gs_flg, num_range_gat
     norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
     cmap.set_bad('w', alpha=0.0)
 
+    import matplotlib.patches as mpatches
+    handles = [mpatches.Patch(color='red', label='IS'), mpatches.Patch(color='blue', label='GS')]
+    ax.legend(handles=handles, loc=4)
+
     ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
     ax.set_xlabel('UT')
     ax.set_xlim([unique_time[0], unique_time[-1]])
     ax.set_ylabel('Range gate')
     ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
+
+
 
 
 def plot_clusters_colormesh(ax, unique_time, time_flat, gate, label, colors, num_gates, cmap):

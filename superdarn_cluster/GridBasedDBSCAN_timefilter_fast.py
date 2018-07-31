@@ -3,12 +3,8 @@ Grid-based DBSCAN
 Author: Esther Robb
 
 This is the fast implementation of Grid-based DBSCAN.
-It uses a sparse Boolean array of data of size (num_grids) x (num_beams)
-The data structure is why it is able to run faster - instead of checking all points to
-find neighbors, it only checks adjacent points.
-
-Complete implementation.
-Confirmed to give the same output as GridBasedDBSCAN_simple.py.
+GBDBSCAN + Timefilter
+If you don't want the timefilter, run it on 1 scan at a time.
 """
 
 import numpy as np
