@@ -1,6 +1,8 @@
 import numpy as np
 from sklearn.cluster import DBSCAN
 
+# TODO this one and dbscan.ipynb are very similar. Which one is up to date? Should I keep both? Does dbscan.ipynb still work?
+
 # ~~ Get data ~~
 from superdarn_cluster.dbtools import flatten_data_11_features, read_db
 import datetime as dt

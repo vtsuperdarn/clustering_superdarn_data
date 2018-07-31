@@ -10,7 +10,7 @@ See the post here for an explanation: https://github.com/scikit-learn/scikit-lea
 """
 
 """ Change this to specify what experiment you are running """
-dir = '../experiments/7-25-18 scan by scan DBSCAN GS IS flags/'
+dir = '../experiments/7-30-18 scan by scan DBSCAN GS IS flags/'
 clust_dir = 'cluster fanplots/'
 vel_dir = 'velocity fanplots/'           # It is not necessary to generate fanplots for each of these similar scripts - they will all be the same.
 if not os.path.exists(dir):
@@ -26,7 +26,10 @@ stats = open(dir + '0_stats.txt', 'w')
 
 """ Get data """
 import pickle
-rad_date = "sas_2018-02-07"
+yr, mo, day = 2018, 2, 7
+rad = 'sas'
+rti_dir = 'rti/%d/%s/' % (yr, rad)
+rad_date = "sas_%d-%02d-%02d" % (yr, mo, day)
 ngate = 75
 nbeam = 16
 data_dict = pickle.load(open("./pickles/%s_scans.pickle" % rad_date, 'rb'))     # Note: this data_dict is scan by scan, other data_dicts may be beam by beam
@@ -80,7 +83,7 @@ for i in scans_to_use:
 
     cluster_colors.append((0, 0, 0, 1))  # black for noise
 
-    """ Cluster fanplot """
+    """ Cluster fanplot 
     clusters = np.unique(labels)
     # Plot a fanplot
     fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
@@ -92,6 +95,7 @@ for i in scans_to_use:
     # plt.show()
     plt.savefig(dir + clust_dir + filename)
     plt.close()
+    """
 
     """ Velocity fanplot 
     # Plot velocity fanplot
@@ -136,14 +140,25 @@ unique_time = np.unique(time_flat)
 beams = np.hstack(np.array(data_dict['beam'])[scans_to_use])
 gates = np.hstack(np.array(data_dict['gate'])[scans_to_use])
 
+rti_dir = dir + 'rti/' + str(yr) + '/' + rad + '/'
+if not os.path.exists(rti_dir):
+    os.makedirs(rti_dir)
+
+import datetime as dt
+date_str = dt.datetime(yr, mo, day).strftime('%Y-%m-%d')
+
+import matplotlib.dates as mdates
+hours = mdates.HourLocator(byhour=range(0, 24, 4))
+
 for b in range(nbeam):
-    fig = plt.figure(figsize=(16, 4))
+    fig = plt.figure(figsize=(12, 8))
     ax = plt.subplot(111)
     beam_filter = b == beams
     plot_is_gs_colormesh(ax, unique_time, time_flat[beam_filter], gates[beam_filter], gs_label[beam_filter], ngate,
-                         plot_indeterminate=True)
-    name = 'gs is colormesh %s threshold beam %d' % (gs_threshold, b)
+                         plot_indeterminate=True, plot_closerange=True)
+    name =  '%s %s                  DBSCAN / %s threshold                  beam %d' % (rad.upper(), date_str, gs_threshold, b)
+    ax.xaxis.set_major_locator(hours)
     plt.title(name)
-    plt.savefig(dir + name + '.png')
-
+    #plt.savefig(dir + name + '.jpg')
+    plt.savefig('%s%s_%d%02d%02d_%02d.jpg' % (rti_dir, rad, yr, mo, day, b))
 

@@ -3,6 +3,7 @@ import os
 import numpy as np
 from superdarn_cluster.utilities import plot_is_gs_colormesh
 
+# TODO combine with more general scripts and delete
 
 """ Change this to specify what experiment you are running """
 dir = '7-22-18 scan by scan STDBSCAN GS IS flags/'

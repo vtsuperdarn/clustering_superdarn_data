@@ -4,6 +4,8 @@ import numpy as np
 import time
 from superdarn_cluster.utilities import plot_is_gs_colormesh
 
+# TODO combine into plot_fanplots_dbscan & delete
+
 """ Change this to specify what experiment you are running """
 dir = '../experiments/7-25-18 DBSCAN + Ratio Vel (scan x scan)/'
 clust_dir = 'cluster fanplots/'

@@ -398,7 +398,7 @@ def plot_is_gs_colormesh(ax, unique_time, time_flat, gate, gs_flg, num_range_gat
 
     import matplotlib.patches as mpatches
     handles = [mpatches.Patch(color='red', label='IS'), mpatches.Patch(color='blue', label='GS')]
-    ax.legend(handles=handles, loc=4)
+    ax.legend(handles=handles, loc=4) # default value for loc is 'optimal', which is EXTREMELY SLOW for this plot
 
     ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
     ax.set_xlabel('UT')
@@ -407,6 +407,62 @@ def plot_is_gs_colormesh(ax, unique_time, time_flat, gate, gs_flg, num_range_gat
     ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
 
 
+def add_colorbar(fig, bounds, colormap, pos=[0.925, 0.125, 0.015, 0.33], label=''):
+    """
+    :param fig:
+    :param bounds:
+    :param colormap:
+    :param pos: [left, bottom, width, height] values are 0.0 - 1.0
+    :param label:
+    :return:
+    """
+    import matplotlib as mpl
+    cax = fig.add_axes(pos)   # this list defines (left, bottom, width, height)
+    norm = mpl.colors.BoundaryNorm(bounds, colormap.N)
+    cb2 = mpl.colorbar.ColorbarBase(cax, cmap=colormap,
+                                    norm=norm,
+                                    ticks=bounds,
+                                    spacing='uniform',
+                                    orientation='vertical')
+    cb2.set_label(label)
+
+#TODO making this and related functions into a class might simplify all this code and allow for more customization
+def plot_vel_colormesh(fig, ax, unique_time, time_flat, gate, vel, num_range_gates):
+    import numpy as np
+    import matplotlib as mpl
+    from matplotlib.dates import DateFormatter
+    import matplotlib.pyplot as plt
+
+    num_times = len(unique_time)
+    color_mesh = np.zeros((num_times, num_range_gates)) * np.nan
+
+    vel_step = 25
+    vel_ranges = list(range(-200, 201, vel_step))
+    vel_ranges.insert(0, -9999)
+    vel_ranges.append(9999)
+    cmap = plt.cm.jet  # use 'viridis' to make this redgreen colorblind proof
+    for s in range(len(vel_ranges) - 1):
+        step_mask = (vel >= vel_ranges[s]) & (vel < (vel_ranges[s + 1]))
+        t = [np.where(tf == unique_time)[0][0] for tf in time_flat[step_mask]]
+        g = gate[step_mask].astype(int)
+        color_mesh[t, g] = vel_ranges[s]        # TODO is this ok?
+
+    # Create a matrix of the right size
+    range_gate = np.linspace(1, num_range_gates, num_range_gates)
+    mesh_x, mesh_y = np.meshgrid(unique_time, range_gate)
+    invalid_data = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)
+
+    norm = mpl.colors.BoundaryNorm(vel_ranges, cmap.N)
+    cmap.set_bad('w', alpha=0.0)
+    ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+    ax.set_xlabel('UT')
+    ax.set_xlim([unique_time[0], unique_time[-1]])
+    ax.set_ylabel('Range gate')
+    ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
+
+    # TODO this assumes ax is in the 212 position, and places the colorbar next to it. May not always be the case.
+    # Would be easier to manage this if it were a class.
+    add_colorbar(fig, vel_ranges, cmap, label='Vel')
 
 
 def plot_clusters_colormesh(ax, unique_time, time_flat, gate, label, colors, num_gates, cmap):
