@@ -7,6 +7,45 @@ import datetime as dt
 import pickle
 from superdarn_cluster.utilities import ribiero_gs_flg, blanchard_gs_flg
 
+# TODO add a function that does the GS/IS flags to make this more DRY
+
+def dbscan_gmm(data_dict, stats, params, gs_threshold='code'):
+    from superdarn_cluster.DBSCAN_GMM import DBSCAN_GMM
+    beam = np.hstack(data_dict['beam'])
+    gate = np.hstack(data_dict['gate'])
+    time = np.hstack(data_dict['time'])
+    vel = np.hstack(data_dict['vel'])
+    wid = np.hstack(data_dict['wid'])
+
+    db = DBSCAN_GMM(params)
+    clust_labels = db.fit(beam, gate, time, vel, wid)
+    gs_labels = np.zeros(len(clust_labels))
+
+    for c in np.unique(clust_labels):
+        clust_mask = c == clust_labels
+        if c == -1:
+            gs_labels[clust_mask] = -1      # Noise flag
+        elif gs_threshold == 'Ribiero':
+            gs_labels[clust_mask] = ribiero_gs_flg(vel[clust_mask], time[clust_mask])
+        elif gs_threshold == 'code' or gs_threshold == 'paper':
+            gs_labels[clust_mask] = blanchard_gs_flg(vel[clust_mask], wid[clust_mask], gs_threshold)
+        else:
+            raise ('Bad gs_threshold: ' + gs_threshold)
+        stats.write('%d: velocity var %.2f      width var %.2f\n' % (
+                    c, np.var(np.abs(vel[clust_mask])), np.var(np.abs(wid[clust_mask]))))
+        stats.write('    velocity mean %.2f      width mean %.2f\n' % (
+                    np.mean(np.abs(vel[clust_mask])), np.mean(np.abs(wid[clust_mask]))))
+
+    # Make the GS/cluster labels scan-by-scan
+    gs_flg = []
+    clust_flg = []
+    i = 0
+    for s in data_dict['vel']:
+        gs_flg.append(gs_labels[i:i + len(s)])
+        clust_flg.append(clust_labels[i:i + len(s)])
+        i += len(s)
+    return gs_flg, clust_flg
+
 
 def gbdbscan_timefilter(data_dict, stats, params, gs_threshold='code'):
     from superdarn_cluster.GridBasedDBSCAN_timefilter_fast import GridBasedDBSCAN, dict_to_csr_sparse
@@ -112,41 +151,51 @@ def gbdbscan(data_dict, stats, params, gs_threshold='code'):
     return gs_flgs, labels
 
 
-""" Customize these params """
-algs = ['DBSCAN', 'GBDBSCAN', 'DBSCAN + Vel', 'GBDBSCAN + Vel']
-timefilter = False
-alg_i = 1
-gs_threshold = 'code'
-exper_dir = '../experiments'
-pickle_dir = './pickles'
-rad = 'sas'
-alg_dir = '%s + %s (%s)' % (algs[alg_i], gs_threshold, 'timefilter' if timefilter else 'scan x scan')
-dates = [(2018, 2, 7), (2017, 5, 30), (2017, 8, 20), (2017, 10, 16), (2017, 12, 19), (2018, 2, 7), (2018, 4, 5)]
-params = {'f': 0.2, 'g': 1, 'pts_ratio': 0.6}       # timefilter GBDB
-#params = {'f': 0.3, 'g': 2, 'pts_ratio': 0.3}       # scanxscan GBDB
+if __name__ == '__main__':
+    """ Customize these params """
+    algs = ['DBSCAN', 'GBDBSCAN', 'DBSCAN + Vel', 'GBDBSCAN + Vel', 'DBSCAN + GMM']
+    timefilter = True
+    alg_i = 4
+    gs_threshold = 'code'
+    exper_dir = '../experiments'
+    pickle_dir = './pickles'
+    rad = 'sas'
+    alg_dir = '%s + %s (%s)' % (algs[alg_i], gs_threshold, 'timefilter' if timefilter else 'scan x scan')
+    dates = [(2018, 2, 7), (2017, 5, 30)]#[(2018, 2, 7), (2017, 5, 30), (2017, 8, 20), (2017, 10, 16), (2017, 12, 19), (2018, 2, 7), (2018, 4, 5)]
 
-dir = pickle_dir + '/' + alg_dir
-if not os.path.exists(dir):
-    os.makedirs(dir)
-stats = open(dir + '/' + '0_stats.txt', 'w')
+    dir = pickle_dir + '/' + alg_dir
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    stats = open(dir + '/' + '0_stats.txt', 'w')
 
-""" Get data """
-for date in dates:
-    year, month, day = date[0], date[1], date[2]
-    start_time = dt.datetime(year, month, day)
-    date_str = '%d-%02d-%02d' % (year, month, day)
-    data_dict = pickle.load(open("%s/%s_%s_scans.pickle" % (pickle_dir, rad, date_str), 'rb'))     # Note: this data_dict is scan by scan, other data_dicts may be beam by beam
+    """ Get data """
+    for date in dates:
+        year, month, day = date[0], date[1], date[2]
+        start_time = dt.datetime(year, month, day)
+        date_str = '%d-%02d-%02d' % (year, month, day)
+        data_dict = pickle.load(open("%s/%s_%s_scans.pickle" % (pickle_dir, rad, date_str), 'rb'))     # Note: this data_dict is scan by scan, other data_dicts may be beam by beam
 
-    stats.write('~~~~  %s %s  ~~~~\n' % (rad, date_str))
-    stats.write('Generated on %s\n' % dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    stats.flush()   # Flush the buffer so contents show up in file
+        stats.write('~~~~  %s %s  ~~~~\n' % (rad, date_str))
+        stats.write('Generated on %s\n' % dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        stats.flush()   # Flush the buffer so contents show up in file
 
-    gs_flg, clust_flg = gbdbscan_timefilter(data_dict, stats, params, gs_threshold=gs_threshold)
-    data_dict['gs_flg'] = gs_flg
-    data_dict['clust_flg'] = clust_flg
-    data_dict['params'] = params
+        """ SET PARAMS: These params have been chosen as good ones for the algorithm, change them if you want to experiment """
+        if algs[alg_i] == 'GBDBSCAN':
+            if timefilter:
+                params = {'f': 0.2, 'g': 1, 'pts_ratio': 0.6}  # timefilter GBDB
+                gs_flg, clust_flg = gbdbscan_timefilter(data_dict, stats, params, gs_threshold=gs_threshold)
+            else:      # scan x scan
+                params = {'f': 0.3, 'g': 2, 'pts_ratio': 0.3}       # scanxscan GBDB
+                gs_flg, clust_flg = gbdbscan(data_dict, stats, params, gs_threshold=gs_threshold)
+        elif algs[alg_i] == 'DBSCAN + GMM':
+            params = {'time_eps':20.0, 'beam_eps':3.0, 'gate_eps':1.0, 'eps':1.0, 'min_pts':7, 'n_clusters':3}
+            gs_flg, clust_flg = dbscan_gmm(data_dict, stats, params, gs_threshold=gs_threshold)
 
-    output = '%s_%s_labels.pickle' % (rad, date_str)
-    pickle.dump(data_dict, open(dir + '/' + output, 'wb'))
+        data_dict['gs_flg'] = gs_flg
+        data_dict['clust_flg'] = clust_flg
+        data_dict['params'] = params
 
-stats.close()
+        output = '%s_%s_labels.pickle' % (rad, date_str)
+        pickle.dump(data_dict, open(dir + '/' + output, 'wb'))
+
+    stats.close()

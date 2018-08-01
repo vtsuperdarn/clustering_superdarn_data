@@ -6,6 +6,8 @@ This is the fast implementation of Grid-based DBSCAN.
 GBDBSCAN + Timefilter + Vel
 """
 
+#TODO try removing the sparse matrix entirely
+
 import numpy as np
 
 UNCLASSIFIED = 0
@@ -100,13 +102,9 @@ class STGBDBSCAN():
             for seed_id in seeds:                                   # Add the current point and all neighbors to this cluster
                 grid_labels[seed_id[0]][seed_id[1]] = cluster_id
 
-            # So this is where mine is different - I calculate the cluster average of the first cluster first, instead
-            # of updating it as new points are found. This works worse because...?
-
             # Calculate the average of the first group of points first, for later use to compare with d_eps
             cluster_avg, cluster_size = self._cluster_avg(data, grid_labels, cluster_id)
 
-            # Mine runs in a different order because of the GB stuff.... Is that all there is too it? This is whats wrong with STDB.
             while len(seeds) > 0:                                       # Find the neighbors of all neighbors
                 current_scan, current_grid = seeds[0][0], seeds[0][1]
                 results, possible_pts = self._region_query(data, data_i, current_scan, current_grid, cluster_id, grid_labels)
@@ -121,7 +119,6 @@ class STGBDBSCAN():
                             rel_diff = (cluster_avg - data[result_scan][result_point]) / cluster_avg
                             if np.abs(rel_diff) <= self.d_eps:
                             #if np.abs(cluster_avg - data[result_scan][result_point]) <= self.d_eps:
-                                #print(cluster_avg)
                                 # Look for more neighbors only if it wasn't labelled noise previously (few neighbors)
                                 if grid_labels[result_scan][result_point] != NOISE:
                                     seeds.append((result_scan, result_point))
@@ -164,6 +161,8 @@ class STGBDBSCAN():
                 if grid_labels[scan_i][grid_id] == UNCLASSIFIED:
                     if self._expand_cluster(data, data_i, grid_labels, scan_i, grid_id, cluster_id):
                         cluster_id = cluster_id + 1
+                        if cluster_id == 5:
+                            print('HI')
 
             scan_pt_labels = [grid_labels[scan_i][grid_id] for grid_id in m_i]
             point_labels.append(scan_pt_labels)
@@ -190,10 +189,6 @@ def dict_to_csr_sparse(data_dict, ngate, nbeam, values):
         data_i.append(m_i)
     return data, data_i
 
-# TODO what about when there's no data... this assumes there is always data
-# TODO I don't think the non-spatial value part of this is working well, just based on the velocity plot
-# TODO is the time part of this working properly? Looks to be. Try a time epsilon? Smaller g?
-
 if __name__ == '__main__':
     """ Fake data 
     gate = np.random.randint(low=0, high=nrang-1, size=100)
@@ -209,29 +204,35 @@ if __name__ == '__main__':
     data_dict = pickle.load(open("../pickles/%s_scans.pickle" % rad_date, 'rb'))
 
     from scipy.stats import boxcox
-    scans_to_use = range(3) #len(data_dict['gate']))
-    values = [np.abs(data_dict['vel'][i]).astype(int) for i in scans_to_use]
+    scans_to_use = range(2) #len(data_dict['gate']))
+    """
+    bx_vel = boxcox(np.abs(np.hstack(data_dict['vel'])))[0]
+    values = [] #[boxcox(np.abs(data_dict['vel'][i]))[0] for i in scans_to_use] # Scan by scan boxcox.
+    i = 0
+    for s in np.array(data_dict['gate'])[scans_to_use]:
+        values.append(bx_vel[i:i+len(s)])
+        i+=len(s)
+    """
+
     #values = [np.array(list(range(1, len(data_dict['gate'][i])+1))).astype(float) for i in scans_to_use]
     #values = [[1.0]*len(data_dict['gate'][i]) for i in scans_to_use]
+    values = [np.abs(data_dict['vel'][i]) for i in scans_to_use]
     data, data_i = dict_to_csr_sparse(data_dict, ngate, nbeam, values)
-
-    for value in values[0].astype(int):
-        print('%s;' % value, end='')
 
     """ Grid-based DBSCAN """
     from superdarn_cluster.FanPlot import FanPlot
     import matplotlib.pyplot as plt
 
-    # Solid params board: f=0.2 0.3 0.4, g=1 2 3
     # Good way to tune this one: Use only the first 200 scans of SAS 2-7-18, because they tend to get all clustered together with bad params,
     # but then there is a long period of quiet so there's time separation between that big cluster and everything else.
     dr = 45
     dtheta = 3.3
     r_init = 180
-    f = 3.0     # only f matters
-    g = 3.0
-    pts_ratio = 6
-    eps2, d_eps = 20.0, 20.0
+    f = 0.3
+    g = 2.0
+    pts_ratio = 0.5
+    eps2, d_eps = 1.0, 1.0
+    params = {'f' : f, 'g' : g, 'pts_ratio':pts_ratio, 'eps2':eps2, 'd_eps':d_eps}
     gdb = STGBDBSCAN(f, g, eps2, d_eps, pts_ratio, ngate, nbeam, dr, dtheta, r_init)
     import time
     t0 = time.time()
@@ -246,7 +247,6 @@ if __name__ == '__main__':
     # randomly re-arrange colors for contrast in adjacent clusters
     np.random.seed(0)
     np.random.shuffle(cluster_colors)
-
     cluster_colors.append((0, 0, 0, 1))  # black for noise
 
     vel = data_dict['vel']
@@ -256,9 +256,15 @@ if __name__ == '__main__':
         fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
         for c in clusters:
             label_mask = labels[i] == c
-            fanplot.plot(data_dict['beam'][i][label_mask], data_dict['gate'][i][label_mask], cluster_colors[c])
-        plt.title('Grid-based DBSCAN fanplot\nf = %.2f    g = %d    pts_ratio = %.2f' % (f, g, pts_ratio))
-        filename = '%s_f%.2f_g%d_ptRatio%.2f_scan%d_fanplot.png' % (rad_date, f, g, pts_ratio, i)
+            beam_c = data_dict['beam'][i][label_mask]
+            gate_c = data_dict['gate'][i][label_mask]
+            fanplot.plot(beam_c, gate_c, cluster_colors[c])
+            if c != -1:
+                m = int(len(beam_c) / 2)  # Beam is sorted, so this is roughly the index of the median beam
+                fanplot.text(str(c), beam_c[m], gate_c[m])  # Label each cluster with its cluster #
+
+        plt.title('Grid-based DBSCAN fanplot\nparams: %s' % (params))
+        filename = '%s_boxcar_f%.2f_g%d_ptRatio%.2f_2eps%.2f_deps%.2f_scan%d_fanplot.png' % (rad_date, f, g, pts_ratio, eps2, d_eps, i)
         # plt.show()
         plt.savefig(filename)
         plt.close()
@@ -266,84 +272,21 @@ if __name__ == '__main__':
         """ Velocity map """
         # Plot velocity fanplot
         fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
-        vel_step = 25
-        vel_ranges = list(range(-200, 201, vel_step))
+        vel_step = 0.5
+        vel_ranges = list(np.linspace(-10, 10, 41)) #list(range(-10, 10, vel_step))
         vel_ranges.insert(0, -9999)
         vel_ranges.append(9999)
         cmap = plt.cm.jet       # use 'viridis' to make this redgreen colorblind proof
         vel_colors = cmap(np.linspace(0, 1, len(vel_ranges)))
         for s in range(len(vel_ranges) - 1):
-            step_mask = (vel[i] >= vel_ranges[s]) & (vel[i] <= (vel_ranges[s+1]))
+            step_mask = (values[i] >= vel_ranges[s]) & (values[i] <= (vel_ranges[s+1]))
             fanplot.plot(data_dict['beam'][i][step_mask], data_dict['gate'][i][step_mask], vel_colors[s])
+        for j, beam in enumerate(data_dict['beam'][i]):
+            gate = data_dict['gate'][i][j]
+            fanplot.text(str(np.abs(int(values[i][j]))), beam, gate, fontsize=5)
 
-        filename = 'vel_scan%d_fanplot.png' % (i)
+        filename = 'bx_vel_scan%d_fanplot.png' % (i)
         fanplot.add_colorbar(vel_ranges, cmap)
         #plt.show()
         plt.savefig(filename)
         plt.close()
-
-
-
-    """ Testing various params 
-    pts_ratios = np.linspace(0.1, 1.0, 10)
-    cij_min = _calculate_ratio(dr, dtheta * 3.1415926 / 180.0, i=0, j=0, r_init=r_init)
-    cij_max = _calculate_ratio(dr, dtheta * 3.1415926 / 180.0, i=ngate-1, j=0, r_init=r_init)
-
-    fs = np.linspace(0.1, 1, 9)#[1, 2, 3, 4.4] #np.linspace((1.0/cij_min), (1.0/cij_min)+1, 10)
-
-    for f in fs:
-        pts_ratio = 0.3
-        #gs = range(int(np.ceil(5 * f)), int(np.ceil(nbeam * f)))        # 5 <= g/f <= num_beams
-        gs = range(1, 11)    #
-        for g in gs:
-            gdb = GridBasedDBSCAN(float(f), float(g), pts_ratio, ngate, nbeam, dr, dtheta, r_init)
-            # TODO why is this slow it should be fast, can I run it on a whole day?
-            labels = gdb.fit(data['gate'], data['beam'])
-
-            clusters = np.unique(labels)
-            print('Grid-based DBSCAN Clusters: ', clusters)
-            colors = list(plt.cm.plasma(np.linspace(0, 1, len(clusters))))  # one extra unused color at index 0 (no cluster label == 0)
-            colors.append((0, 0, 0, 1)) # black for noise
-
-            # Plot a fanplot
-            fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
-            for c in clusters:
-                label_mask = labels == c
-                fanplot.plot(beam[label_mask], gate[label_mask], colors[c])
-            plt.title('Grid-based DBSCAN fanplot\nf = %.2f    g = %d    pts_ratio = %.2f' % (f, g, pts_ratio))
-            filename = '%s_f%.2f_g%d_ptRatio%.2f_fanplot.png' % (rad_date, f, g, pts_ratio)
-            #plt.show()
-            plt.savefig(filename)
-            plt.close()
-    """
-
-    """ Regular DBSCAN 
-    from sklearn.cluster import DBSCAN
-    dbs_eps, min_pts = 5, 25
-    dbs_data = np.column_stack((gate, beam))
-    dbscan = DBSCAN(eps=dbs_eps, min_samples=min_pts)
-    labels = dbscan.fit_predict(dbs_data)
-    clusters = np.unique(labels)
-    print('Regular DBSCAN Clusters: ', clusters)
-
-    colors = list(plt.cm.plasma(np.linspace(0, 1, len(clusters))))  # one extra unused color at index 0 (no cluster label == 0)
-    colors.append((0, 0, 0, 1)) # black for noise
-    fanplot = FanPlot()
-    for c in clusters:
-        label_mask = labels == c
-        fanplot.plot(beam[label_mask], gate[label_mask], colors[c])
-    plt.title('Regular DBSCAN fanplot\neps = %.2f    k = %.2f' % (dbs_eps, min_pts))
-    filename = '%s_eps%.2f_minPts%d_fanplot.png' % (rad_date, dbs_eps, min_pts)
-    plt.savefig(filename)
-    plt.close()
-    for c in clusters:
-        label_mask = labels == c
-        plt.scatter(beam[label_mask], gate[label_mask], color=colors[c])
-    plt.title('Regular DBSCAN gridplot (what regular DBSCAN sees)\neps = %.2f    k = %.2f' % (dbs_eps, min_pts))
-    filename = '%s_eps%.2f_minPts%d_gridplot.png' % (rad_date, dbs_eps, min_pts)
-    plt.savefig(filename)
-    plt.close()
-
-    """
-
-

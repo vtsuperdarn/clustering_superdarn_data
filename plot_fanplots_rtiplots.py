@@ -7,12 +7,13 @@ import matplotlib.dates as mdates
 from superdarn_cluster.FanPlot import FanPlot
 import matplotlib.pyplot as plt
 
-# TODO make sure this is consistent with pickle_updater
+# TODO add colormesh individual cluster plots with stats for max usefulness
+
 """ Customize these params """
-algs = ['DBSCAN', 'GBDBSCAN', 'DBSCAN + Vel', 'GBDBSCAN + Vel']
+algs = ['DBSCAN', 'GBDBSCAN', 'DBSCAN + Vel', 'GBDBSCAN + Vel', 'DBSCAN + GMM']
 timefilter = True
-alg_i = 1
-gs_threshold = 'Ribiero'
+alg_i = 4
+gs_threshold = 'code'
 exper_dir = '../experiments'
 pickle_dir = './pickles'
 yr, mo, day = 2018, 2, 7
@@ -21,8 +22,8 @@ rad = 'sas'
 alg_dir = '%s + %s (%s)' % (algs[alg_i], gs_threshold, 'timefilter' if timefilter else 'scan x scan')
 dir = '%s/%s %s' % (exper_dir, dt.datetime.now().strftime('%m-%d-%Y'), alg_dir)
 
-clust_dir = '%s/cluster fanplots'
-vel_dir = '%s/velocity fanplots'  # It is not necessary to generate fanplots for each of these similar scripts - they will all be the same.
+clust_dir = '%s/cluster fanplots' % (dir)
+vel_dir = '%s/velocity fanplots' % (dir) # It is not necessary to generate fanplots for each of these similar scripts - they will all be the same.
 rti_dir = '%s/rti/%d/%s' % (dir, yr, rad)
 if not os.path.exists(dir):
     os.makedirs(dir)
@@ -49,33 +50,35 @@ cluster_colors = list(
 # randomly re-arrange colors for contrast in adjacent clusters
 np.random.seed(0)  # always produce same cluster colors on subsequent runs
 np.random.shuffle(cluster_colors)
-cluster_colors.append((0, 0, 0, 1))  # black for noise
 
 vel = data_dict['vel']
 time = data_dict['time']
 ngate = int(data_dict['nrang'])
 nbeam = int(data_dict['nbeam'])
 
-""" Optional (SLOW) loop: produce fanplots color-coded by cluster and by velocity 
+""" Optional (SLOW) loop: produce fanplots color-coded by cluster and by velocity """
 for i in scans_to_use:
     clusters = np.unique(labels[i])
     # Plot a fanplot
     fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
-    for c in clusters:
+    for ci, c in enumerate(clusters):
         label_mask = labels[i] == c
         beam_c = data_dict['beam'][i][label_mask]
         gate_c = data_dict['gate'][i][label_mask]
-        fanplot.plot(beam_c, gate_c, cluster_colors[c])
-        if c != -1:
+        if c == -1:
+            color = (0, 0, 0, 1)
+        else:
+            color = cluster_colors[c]
             m = int(len(beam_c) / 2)                          # Beam is sorted, so this is roughly the index of the median beam
-            fanplot.text(str(c), beam_c[m], gate_c[m])        # Label each cluster with its cluster #
+            fanplot.text(str(c), beam_c[m], gate_c[m])        # Label cluster #
+        fanplot.plot(beam_c, gate_c, color)
+
     plt.title('%s fanplot\nparams: %s' % (alg_dir, data_dict['params']))
     filename = '%s/%s_scan%d_fanplot.png' % (clust_dir, rad_date, i)
     # plt.show()
     plt.savefig(filename)
     plt.close()
-
-     Velocity map 
+    """ Velocity map """
     # Plot velocity fanplot
     fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
     vel_step = 25
@@ -88,15 +91,15 @@ for i in scans_to_use:
         step_mask = (vel[i] >= vel_ranges[s]) & (vel[i] <= (vel_ranges[s + 1]))
         fanplot.plot(data_dict['beam'][i][step_mask], data_dict['gate'][i][step_mask], vel_colors[s])
 
-    filename = vel_dir + 'vel_scan%d_fanplot.png' % (i)
+    filename = vel_dir + '/vel_scan%d_fanplot.png' % (i)
     fanplot.add_colorbar(vel_ranges, cmap)
     # plt.show()
     plt.savefig(filename)
     plt.close()
-"""
 
-""" Get GS/IS labels for each cluster """
-# TODO this will need to happen differently for timefilter / scan x scan - either do this in 2 files or add a flag
+
+""" Plot individual clusters with stats """
+# TODO
 
 """ Plot IS/GS on RTI plot """
 gs_label = np.hstack(data_dict['gs_flg'])
@@ -109,7 +112,6 @@ vels = np.hstack(np.array(data_dict['vel'])[scans_to_use])
 date_str = dt.datetime(yr, mo, day).strftime('%Y-%m-%d')
 hours = mdates.HourLocator(byhour=range(0, 24, 4))
 
-# TODO plot vel too
 for b in range(nbeam):
     fig = plt.figure(figsize=(14, 10))
     ax1 = plt.subplot(211)
@@ -127,7 +129,8 @@ for b in range(nbeam):
     ax2.set_title(name)
     ax2.xaxis.set_major_locator(hours)
     plt.savefig('%s/%s_%d%02d%02d_%02d.jpg' % (rti_dir, rad, yr, mo, day, b))
-
+    fig.clf()           # Necessary to prevent memory explosion
+    plt.close()
 
 
 

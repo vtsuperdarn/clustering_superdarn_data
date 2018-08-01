@@ -436,8 +436,8 @@ def plot_vel_colormesh(fig, ax, unique_time, time_flat, gate, vel, num_range_gat
     num_times = len(unique_time)
     color_mesh = np.zeros((num_times, num_range_gates)) * np.nan
 
-    vel_step = 25
-    vel_ranges = list(range(-200, 201, vel_step))
+    vel_step = 10
+    vel_ranges = list(range(-100, 101, vel_step))
     vel_ranges.insert(0, -9999)
     vel_ranges.append(9999)
     cmap = plt.cm.jet  # use 'viridis' to make this redgreen colorblind proof
@@ -445,7 +445,7 @@ def plot_vel_colormesh(fig, ax, unique_time, time_flat, gate, vel, num_range_gat
         step_mask = (vel >= vel_ranges[s]) & (vel < (vel_ranges[s + 1]))
         t = [np.where(tf == unique_time)[0][0] for tf in time_flat[step_mask]]
         g = gate[step_mask].astype(int)
-        color_mesh[t, g] = vel_ranges[s]        # TODO is this ok?
+        color_mesh[t, g] = (vel_ranges[s] + 0.5 * vel_step)        # TODO is this ok?
 
     # Create a matrix of the right size
     range_gate = np.linspace(1, num_range_gates, num_range_gates)
@@ -512,6 +512,9 @@ def plot_clusters_colormesh(ax, unique_time, time_flat, gate, label, colors, num
     ax.set_ylabel('Range gate')
     ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap)
 
+# TODO refactor this so the stats data is a dictionary with name: values
+# TODO in fact, this could just take a data_dict in the new format
+# TODO also, don't have it save? Do that in a loop outside? Maybe?
 def plot_clusters(cluster_membership, data_for_stats, time, gate, vel, feature_names_for_stats, range_max,
                       start_time, end_time, radar='', save=True, base_path=''):
     """
