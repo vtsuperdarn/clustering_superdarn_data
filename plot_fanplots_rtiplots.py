@@ -46,7 +46,7 @@ unique_clusters = np.unique(np.hstack(labels))
 stats.write('Clusters: %s\n' % str(unique_clusters))
 cluster_colors = list(
     plt.cm.jet(
-        np.linspace(0, 1, len(unique_clusters) + 1)))  # one extra unused color at index 0 (no cluster label == 0)
+        np.linspace(0, 1, np.max(unique_clusters) + 1)))  # one extra unused color at index 0 (no cluster label == 0)
 # randomly re-arrange colors for contrast in adjacent clusters
 np.random.seed(0)  # always produce same cluster colors on subsequent runs
 np.random.shuffle(cluster_colors)

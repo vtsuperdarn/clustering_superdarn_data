@@ -46,8 +46,14 @@ class DBSCAN_GMM:
             db_cluster_mask = (labels == dbc)
             if dbc == -1:
                 continue
+            num_pts = np.sum(db_cluster_mask)
+            # Sometimes DBSCAN will find tiny clusters due to this:
+            # https://stackoverflow.com/questions/21994584/can-the-dbscan-algorithm-create-a-cluster-with-less-than-minpts
+            # I don't want to keep these clusters, so label them as noise
+            if num_pts < self.min_pts:
+                labels[db_cluster_mask] = -1
             # TODO base this on variance(abs(whatev, maybe vel, wid, range gate, power)))
-            if np.sum(db_cluster_mask) < 500:
+            if num_pts < 500:
                 continue
             if self.alg == 'GMM':
                 data = gmm_data[db_cluster_mask]

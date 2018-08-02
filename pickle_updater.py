@@ -188,7 +188,7 @@ if __name__ == '__main__':
                 params = {'f': 0.3, 'g': 2, 'pts_ratio': 0.3}       # scanxscan GBDB
                 gs_flg, clust_flg = gbdbscan(data_dict, stats, params, gs_threshold=gs_threshold)
         elif algs[alg_i] == 'DBSCAN + GMM':
-            params = {'time_eps':20.0, 'beam_eps':3.0, 'gate_eps':1.0, 'eps':1.0, 'min_pts':7, 'n_clusters':3}
+            params = {'time_eps':20.0, 'beam_eps':3.0, 'gate_eps':1.0, 'eps':1.0, 'min_pts':5, 'n_clusters':3}
             gs_flg, clust_flg = dbscan_gmm(data_dict, stats, params, gs_threshold=gs_threshold)
 
         data_dict['gs_flg'] = gs_flg
