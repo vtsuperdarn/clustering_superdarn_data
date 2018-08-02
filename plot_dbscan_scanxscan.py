@@ -9,6 +9,8 @@ Note about results : This will produce some clusters with size < min_pts
 See the post here for an explanation: https://github.com/scikit-learn/scikit-learn/issues/5031
 """
 
+# TODO add this to pickle_updater & delete
+
 """ Change this to specify what experiment you are running """
 dir = '../experiments/7-30-18 scan by scan DBSCAN GS IS flags/'
 clust_dir = 'cluster fanplots/'

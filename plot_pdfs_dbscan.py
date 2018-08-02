@@ -5,6 +5,8 @@ import datetime as dt
 import os
 import numpy as np
 
+# TODO combine the 3 plot_pdf scripts into 2 script that takes a pickle file? does it make sense to pickle pca? lol
+
 rad = 'sas'
 dates = [(2017, 5, 30), (2017, 8, 20), (2017, 10, 16), (2017, 12, 19), (2018, 2, 7), (2018, 4, 5)]
 #pickle_alg = 'GBDBSCAN + Ribiero (timefilter)'

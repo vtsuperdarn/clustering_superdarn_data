@@ -1,13 +1,12 @@
 import os
 import numpy as np
-from superdarn_cluster.utilities import plot_is_gs_colormesh, plot_vel_colormesh, add_colorbar
+from superdarn_cluster.utilities import plot_is_gs_colormesh, plot_vel_colormesh, plot_stats_table, plot_clusters_colormesh
 import pickle
 import datetime as dt
 import matplotlib.dates as mdates
 from superdarn_cluster.FanPlot import FanPlot
 import matplotlib.pyplot as plt
 
-# TODO add colormesh individual cluster plots with stats for max usefulness
 
 """ Customize these params """
 algs = ['DBSCAN', 'GBDBSCAN', 'DBSCAN + Vel', 'GBDBSCAN + Vel', 'DBSCAN + GMM']
@@ -16,23 +15,17 @@ alg_i = 4
 gs_threshold = 'code'
 exper_dir = '../experiments'
 pickle_dir = './pickles'
-yr, mo, day = 2018, 2, 7
+yr, mo, day = 2017, 10, 16
 rad = 'sas'
 
 alg_dir = '%s + %s (%s)' % (algs[alg_i], gs_threshold, 'timefilter' if timefilter else 'scan x scan')
 dir = '%s/%s %s' % (exper_dir, dt.datetime.now().strftime('%m-%d-%Y'), alg_dir)
 
-clust_dir = '%s/cluster fanplots' % (dir)
-vel_dir = '%s/velocity fanplots' % (dir) # It is not necessary to generate fanplots for each of these similar scripts - they will all be the same.
-rti_dir = '%s/rti/%d/%s' % (dir, yr, rad)
+
 if not os.path.exists(dir):
     os.makedirs(dir)
-if not os.path.exists(clust_dir):
-    os.makedirs(clust_dir)
-if not os.path.exists(vel_dir):
-    os.makedirs(vel_dir)
-if not os.path.exists(rti_dir):
-    os.makedirs(rti_dir)
+
+
 stats = open(dir + '/0_stats.txt', 'w')
 stats.write(alg_dir + '\n')
 
@@ -51,15 +44,81 @@ cluster_colors = list(
 np.random.seed(0)  # always produce same cluster colors on subsequent runs
 np.random.shuffle(cluster_colors)
 
-vel = data_dict['vel']
 time = data_dict['time']
 ngate = int(data_dict['nrang'])
 nbeam = int(data_dict['nbeam'])
 
-""" Optional (SLOW) loop: produce fanplots color-coded by cluster and by velocity """
+
+
+""" Plot IS/GS on RTI plot """
+gs_label = np.hstack(data_dict['gs_flg'])
+time_flat = np.hstack(np.array(data_dict['time'])[scans_to_use])
+unique_time = np.unique(time_flat)
+beams = np.hstack(np.array(data_dict['beam'])[scans_to_use])
+gates = np.hstack(np.array(data_dict['gate'])[scans_to_use])
+vels = np.hstack(np.array(data_dict['vel'])[scans_to_use])
+labels_flat = np.hstack(labels)
+
+date_str = dt.datetime(yr, mo, day).strftime('%Y-%m-%d')
+hours = mdates.HourLocator(byhour=range(0, 24, 4))
+
+import copy
+clust_range = list(range(-1, int(max(unique_clusters))+1))
+randomized_labels_unique = copy.deepcopy(clust_range)
+np.random.shuffle(randomized_labels_unique)
+random_labels_flat = np.zeros(len(labels_flat))
+for c in unique_clusters:
+    cluster_mask = c == labels_flat
+    if c == -1:
+        random_labels_flat[cluster_mask] = -1
+    else:
+        random_labels_flat[cluster_mask] = randomized_labels_unique[c]
+
+rti_dir = '%s/rti/%d/%s' % (dir, yr, rad)
+if not os.path.exists(rti_dir):
+    os.makedirs(rti_dir)
+
+for b in range(nbeam):
+    fig = plt.figure(figsize=(14, 15))
+    ax0 = plt.subplot(311)
+    ax1 = plt.subplot(312)
+    ax2 = plt.subplot(313)
+    beam_filter = b == beams
+
+    plot_clusters_colormesh(ax0, unique_time, time_flat[beam_filter], gates[beam_filter], clust_range, random_labels_flat[beam_filter], ngate)
+    name = '%s %s                           Clusters                           %s                            beam %d' \
+           % (rad.upper(), date_str, algs[alg_i], b)
+    ax0.set_title(name)
+    ax0.xaxis.set_major_locator(hours)
+    plot_is_gs_colormesh(ax1, unique_time, time_flat[beam_filter], gates[beam_filter], gs_label[beam_filter], ngate,
+                         plot_indeterminate=True, plot_closerange=True)
+    name = '%s %s                  IS/GS                  %s / %s threshold                  beam %d' \
+                % (rad.upper(), date_str, algs[alg_i], gs_threshold, b)
+    ax1.set_title(name)
+    ax1.xaxis.set_major_locator(hours)
+    plot_vel_colormesh(fig, ax2, unique_time, time_flat[beam_filter], gates[beam_filter], vels[beam_filter], ngate)
+    name = '%s %s                                                    Velocity                                                    beam %d' \
+                % (rad.upper(), date_str, b)
+    ax2.set_title(name)
+    ax2.xaxis.set_major_locator(hours)
+    plt.savefig('%s/%s_%d%02d%02d_%02d.jpg' % (rti_dir, rad, yr, mo, day, b))
+    fig.clf()           # Necessary to prevent memory explosion
+    plt.close()
+
+
+""" Optional (SLOW) loop: produce fanplots color-coded by cluster and by velocity
+vel = data_dict['vel']
+
+vel_dir = '%s/velocity fanplots %d-%d-%d' % (dir, yr, mo, day) # It is not necessary to generate fanplots for each of these similar scripts - they will all be the same.
+if not os.path.exists(vel_dir):
+    os.makedirs(vel_dir)
+clust_fan_dir = '%s/cluster fanplots %d-%d-%d' % (dir, yr, mo, day)
+if not os.path.exists(clust_fan_dir):
+    os.makedirs(clust_fan_dir)
+
 for i in scans_to_use:
     clusters = np.unique(labels[i])
-    # Plot a fanplot
+    # Cluster fanplot
     fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
     for ci, c in enumerate(clusters):
         label_mask = labels[i] == c
@@ -74,12 +133,13 @@ for i in scans_to_use:
         fanplot.plot(beam_c, gate_c, color)
 
     plt.title('%s fanplot\nparams: %s' % (alg_dir, data_dict['params']))
-    filename = '%s/%s_scan%d_fanplot.png' % (clust_dir, rad_date, i)
+    filename = '%s/%s_scan%d_fanplot.png' % (clust_fan_dir, rad_date, i)
     # plt.show()
     plt.savefig(filename)
     plt.close()
-    """ Velocity map """
-    # Plot velocity fanplot
+ """
+    # Velocity map
+"""
     fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
     vel_step = 25
     vel_ranges = list(range(-200, 201, vel_step))
@@ -96,41 +156,48 @@ for i in scans_to_use:
     # plt.show()
     plt.savefig(filename)
     plt.close()
+    """
 
 
-""" Plot individual clusters with stats """
-# TODO
+""" OPTIONAL / SLOW :Plot individual clusters on RTI with stats - NOTE: for scan x scan algorithms, these will be NONSENSE 
+clust_rti_dir = '%s/cluster rtiplots %d-%d-%d' % (dir, yr, mo, day)
+if not os.path.exists(clust_rti_dir):
+    os.makedirs(clust_rti_dir)
 
-""" Plot IS/GS on RTI plot """
-gs_label = np.hstack(data_dict['gs_flg'])
-time_flat = np.hstack(np.array(data_dict['time'])[scans_to_use])
-unique_time = np.unique(time_flat)
-beams = np.hstack(np.array(data_dict['beam'])[scans_to_use])
-gates = np.hstack(np.array(data_dict['gate'])[scans_to_use])
-vels = np.hstack(np.array(data_dict['vel'])[scans_to_use])
-
-date_str = dt.datetime(yr, mo, day).strftime('%Y-%m-%d')
-hours = mdates.HourLocator(byhour=range(0, 24, 4))
-
-for b in range(nbeam):
-    fig = plt.figure(figsize=(14, 10))
+vel_abs_flat = np.hstack(np.abs(data_dict['vel']))
+wid_abs_flat = np.hstack(np.abs(data_dict['wid']))
+elv_flat = np.hstack(data_dict['elv'])
+beam_flat = np.hstack(data_dict['beam'])
+gate_flat = np.hstack(data_dict['gate'])
+time_flat = np.hstack(data_dict['time'])
+labels_flat = np.hstack(labels)
+clust_fig = plt.figure(num=1, figsize=(16, 4))
+for c in unique_clusters:
+    cluster_mask = labels_flat == c
+    if np.sum(cluster_mask) < 100:
+        continue                    # Skip small clusters, DBSCAN creates a million of them
+    if c == -1:
+        color = (0, 0, 0, 1)    # black
+    else:
+        color = cluster_colors[c]
+    fig = plt.figure(num=0, figsize=(16, 8))
     ax1 = plt.subplot(211)
+    ax1.scatter(time_flat[cluster_mask], gate_flat[cluster_mask], color=color, s=5)
+    ax1.set_ylim(bottom=0, top=ngate)
+    ax1.set_xlim(left=time_flat[0], right=time_flat[-1])
+    ax1.set_title('%s cluster RTI\nnum points: %d\nparams: %s' % (alg_dir, np.sum(cluster_mask), data_dict['params']))
     ax2 = plt.subplot(212)
-    beam_filter = b == beams
-    plot_is_gs_colormesh(ax1, unique_time, time_flat[beam_filter], gates[beam_filter], gs_label[beam_filter], ngate,
-                         plot_indeterminate=True, plot_closerange=True)
-    name = '%s %s                  IS/GS                  %s / %s threshold                  beam %d' \
-                % (rad.upper(), date_str, algs[alg_i], gs_threshold, b)
-    ax1.set_title(name)
-    ax1.xaxis.set_major_locator(hours)
-    plot_vel_colormesh(fig, ax2, unique_time, time_flat[beam_filter], gates[beam_filter], vels[beam_filter], ngate)
-    name = '%s %s                  Velocity                  %s / %s threshold                  beam %d' \
-                % (rad.upper(), date_str, algs[alg_i], gs_threshold, b)
-    ax2.set_title(name)
-    ax2.xaxis.set_major_locator(hours)
-    plt.savefig('%s/%s_%d%02d%02d_%02d.jpg' % (rti_dir, rad, yr, mo, day, b))
-    fig.clf()           # Necessary to prevent memory explosion
+    stats_data = {'vel': vel_abs_flat[cluster_mask], 'wid': wid_abs_flat[cluster_mask], 'elv': elv_flat[cluster_mask],
+                  'beam': beam_flat[cluster_mask], 'gate': gate_flat[cluster_mask]}
+    plot_stats_table(ax2, stats_data)
+    filename = '%s/%s_cluster%d_rti.png' % (clust_rti_dir, rad_date, c)
+    # plt.show()
+    plt.savefig(filename)
     plt.close()
+    fig.clf()
 
-
-
+filename = '%s/%s_00_allclusters_rti.png' % (clust_rti_dir, rad_date)
+plt.savefig(filename)
+plt.close()
+clust_fig.clf()
+"""

@@ -256,8 +256,10 @@ def drawCB(fig, coll, cmap, norm, map_plot=False, pos=[0,0,1,1]):
     return cb
 
 
+#TODO why does this appear twice?
+"""
 def plot_clusters_colormesh(x, x_name, y, y_name, cluster_membership):
-    """
+    
     Plot x vs. y, color-coded by cluster using a color mesh
     :param x:
     :param x_name:
@@ -265,7 +267,7 @@ def plot_clusters_colormesh(x, x_name, y, y_name, cluster_membership):
     :param y_name:
     :param cluster_membership: list of integer cluster memberships. len(x) = len(y) = len(cluster_membership)
     :return:
-    """
+    
     import matplotlib.pyplot as plt
     import numpy as np
 
@@ -315,7 +317,7 @@ def plot_clusters_colormesh(x, x_name, y, y_name, cluster_membership):
     # Draw the colorbar.
     cb = drawCB(fig, colormesh, cmap, norm, map_plot=0,
                       pos=[pos[0] + pos[2] + .02, pos[1], 0.02, pos[3]])
-
+"""
 
 def plot_is_gs_scatterplot(time, gate, gs_flg, title):
     """
@@ -407,7 +409,7 @@ def plot_is_gs_colormesh(ax, unique_time, time_flat, gate, gs_flg, num_range_gat
     ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
 
 
-def add_colorbar(fig, bounds, colormap, pos=[0.925, 0.125, 0.015, 0.33], label=''):
+def add_colorbar(fig, bounds, colormap, pos=[0.925, 0.11, 0.015, 0.225], label=''):
     """
     :param fig:
     :param bounds:
@@ -425,6 +427,38 @@ def add_colorbar(fig, bounds, colormap, pos=[0.925, 0.125, 0.015, 0.33], label='
                                     spacing='uniform',
                                     orientation='vertical')
     cb2.set_label(label)
+
+def plot_clusters_colormesh(ax, unique_time, time_flat, gate, clust_range, clust_labels, num_range_gates):
+    import numpy as np
+    import matplotlib as mpl
+    from matplotlib.dates import DateFormatter
+    import matplotlib.pyplot as plt
+
+    num_times = len(unique_time)
+    color_mesh = np.zeros((num_times, num_range_gates)) * np.nan
+
+    cmap = plt.cm.gist_ncar     # even more shade/color variations than Jet looks like
+    unique_labels = np.unique(clust_labels)
+
+    for c in np.unique(unique_labels):
+        clust_mask = c == clust_labels
+        t = [np.where(tf == unique_time)[0][0] for tf in time_flat[clust_mask]]
+        g = gate[clust_mask].astype(int)
+        color_mesh[t, g] = c
+
+    # Create a matrix of the right size
+    range_gate = np.linspace(1, num_range_gates, num_range_gates)
+    mesh_x, mesh_y = np.meshgrid(unique_time, range_gate)
+    invalid_data = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)
+
+    norm = mpl.colors.BoundaryNorm(clust_range, cmap.N)
+    cmap.set_bad('w', alpha=0.0)                        #TODO maybe I can get this to be black for noise
+    ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+    ax.set_xlabel('UT')
+    ax.set_xlim([unique_time[0], unique_time[-1]])
+    ax.set_ylabel('Range gate')
+    ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
+
 
 #TODO making this and related functions into a class might simplify all this code and allow for more customization
 def plot_vel_colormesh(fig, ax, unique_time, time_flat, gate, vel, num_range_gates):
@@ -445,7 +479,7 @@ def plot_vel_colormesh(fig, ax, unique_time, time_flat, gate, vel, num_range_gat
         step_mask = (vel >= vel_ranges[s]) & (vel < (vel_ranges[s + 1]))
         t = [np.where(tf == unique_time)[0][0] for tf in time_flat[step_mask]]
         g = gate[step_mask].astype(int)
-        color_mesh[t, g] = (vel_ranges[s] + 0.5 * vel_step)        # TODO is this ok?
+        color_mesh[t, g] = (vel_ranges[s] + 0.5 * vel_step)
 
     # Create a matrix of the right size
     range_gate = np.linspace(1, num_range_gates, num_range_gates)
@@ -460,13 +494,12 @@ def plot_vel_colormesh(fig, ax, unique_time, time_flat, gate, vel, num_range_gat
     ax.set_ylabel('Range gate')
     ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
 
-    # TODO this assumes ax is in the 212 position, and places the colorbar next to it. May not always be the case.
+    # TODO this assumes ax is in the 313 position, and places the colorbar next to it. May not always be the case.
     # Would be easier to manage this if it were a class.
     add_colorbar(fig, vel_ranges, cmap, label='Vel')
 
-
+"""
 def plot_clusters_colormesh(ax, unique_time, time_flat, gate, label, colors, num_gates, cmap):
-    """
     :param ax: matplotlib axis to draw on
     :param unique_time: all the unique times from a scan
                         [date2num(d) for d in data_dict['datetime']]
@@ -476,13 +509,12 @@ def plot_clusters_colormesh(ax, unique_time, time_flat, gate, label, colors, num
     :param gs_flg:
     :param num_gates:
     :return:
-    """
     #from matplotlib.dates import date2num
     import numpy as np
     import matplotlib as mpl
     from matplotlib.dates import DateFormatter
 
-    #unique_time = np.unique(time_flat)
+
     num_times = len(unique_time)
     color_mesh = np.zeros((num_times, num_gates)) * np.nan
 
@@ -511,7 +543,36 @@ def plot_clusters_colormesh(ax, unique_time, time_flat, gate, label, colors, num
     ax.set_xlim([unique_time[0], unique_time[-1]])
     ax.set_ylabel('Range gate')
     ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap)
+"""
 
+def plot_stats_table(ax, stats_data_dict):
+    """
+    Plot statistics for a dataset on a Matplotlib subplot
+    :param ax: the axis to put the stats table on - make it wide enough to accomidate all the features in stats_data_dict
+    :param stats_data_dict: the dataset, in the format {'feature name' : [val, val, val, ...], ...}
+    """
+    import numpy as np
+
+    feature_names = []
+    feature_values = []
+    for key, vals in stats_data_dict.items():
+        feature_names.append(key)
+        var = np.var(vals)
+        med = np.median(vals)
+        mean = np.mean(vals)
+        max = np.max(vals)
+        min = np.min(vals)
+        feature_values.append([var, med, mean, max, min])
+
+    feature_values = np.array(feature_values)       # Make sure this has the right dimensions, might need to .T
+    rowLabels = ['var', 'med', 'mean', 'max', 'min']
+
+    ax.axis('off')
+    ax.table(cellText=feature_values, rowLabels=rowLabels, colLabels=feature_names, loc='center')
+
+
+
+# TODO slate for removal, too much stuff at once. Modularize this functionality
 # TODO refactor this so the stats data is a dictionary with name: values
 # TODO in fact, this could just take a data_dict in the new format
 # TODO also, don't have it save? Do that in a loop outside? Maybe?
