@@ -1,25 +1,25 @@
 import os
 import numpy as np
-from superdarn_cluster.utilities import plot_is_gs_colormesh, plot_vel_colormesh, plot_stats_table, plot_clusters_colormesh
+from superdarn_cluster.utilities import plot_is_gs_colormesh, plot_vel_colormesh, plot_clusters_colormesh, plot_stats_table
+from superdarn_cluster.FanPlot import FanPlot
 import pickle
 import datetime as dt
 import matplotlib.dates as mdates
-from superdarn_cluster.FanPlot import FanPlot
 import matplotlib.pyplot as plt
 
 
 """ Customize these params """
-algs = ['DBSCAN', 'GBDBSCAN', 'DBSCAN + Vel', 'GBDBSCAN + Vel', 'DBSCAN + GMM']
-timefilter = True
-alg_i = 4
-gs_threshold = 'code'
-exper_dir = '../experiments'
+algs = ['DBSCAN', 'DBSCAN + GMM', 'GMM', 'GBDBSCAN (scan x scan)', 'GBDBSCAN (timefitler)',
+        'GBDBSCAN (timefitler) + GMM']
+alg_i = 2
+gs_threshold = 'Ribiero'
+exper_dir = '../experiments/Comparing 4 algs/'
 pickle_dir = './pickles'
 yr, mo, day = 2017, 10, 16
 rad = 'sas'
 
-alg_dir = '%s + %s (%s)' % (algs[alg_i], gs_threshold, 'timefilter' if timefilter else 'scan x scan')
-dir = '%s/%s %s' % (exper_dir, dt.datetime.now().strftime('%m-%d-%Y'), alg_dir)
+alg_dir = '%s' % (algs[alg_i])
+dir = '%s/%s %s + %s' % (exper_dir, dt.datetime.now().strftime('%m-%d-%Y'), alg_dir, gs_threshold)
 
 
 if not os.path.exists(dir):
@@ -27,7 +27,7 @@ if not os.path.exists(dir):
 
 
 stats = open(dir + '/0_stats.txt', 'w')
-stats.write(alg_dir + '\n')
+stats.write(alg_dir + gs_threshold + '\n')
 
 """ Get data """
 rad_date = "%s_%d-%02d-%02d" % (rad, yr, mo, day)
@@ -51,7 +51,14 @@ nbeam = int(data_dict['nbeam'])
 
 
 """ Plot IS/GS on RTI plot """
-gs_label = np.hstack(data_dict['gs_flg'])
+if gs_threshold == 'Ribiero':
+    gs_flg = data_dict['ribiero_flg']
+if gs_threshold == 'code':
+    gs_flg = data_dict['code_flg']
+if gs_threshold == 'paper':
+    gs_flg = data_dict['paper_flg']
+
+gs_label = np.hstack(gs_flg)
 time_flat = np.hstack(np.array(data_dict['time'])[scans_to_use])
 unique_time = np.unique(time_flat)
 beams = np.hstack(np.array(data_dict['beam'])[scans_to_use])
@@ -78,12 +85,14 @@ rti_dir = '%s/rti/%d/%s' % (dir, yr, rad)
 if not os.path.exists(rti_dir):
     os.makedirs(rti_dir)
 
-for b in range(nbeam):
+for b in [14]:#range(nbeam):
     fig = plt.figure(figsize=(14, 15))
     ax0 = plt.subplot(311)
     ax1 = plt.subplot(312)
     ax2 = plt.subplot(313)
     beam_filter = b == beams
+    if b == 14:
+        print('hi')
 
     plot_clusters_colormesh(ax0, unique_time, time_flat[beam_filter], gates[beam_filter], clust_range, random_labels_flat[beam_filter], ngate)
     name = '%s %s                           Clusters                           %s                            beam %d' \
@@ -105,8 +114,9 @@ for b in range(nbeam):
     fig.clf()           # Necessary to prevent memory explosion
     plt.close()
 
+""" Optional (SLOW) loop: produce fanplots color-coded by cluster and by velocity     """
 
-""" Optional (SLOW) loop: produce fanplots color-coded by cluster and by velocity
+
 vel = data_dict['vel']
 
 vel_dir = '%s/velocity fanplots %d-%d-%d' % (dir, yr, mo, day) # It is not necessary to generate fanplots for each of these similar scripts - they will all be the same.
@@ -116,6 +126,7 @@ clust_fan_dir = '%s/cluster fanplots %d-%d-%d' % (dir, yr, mo, day)
 if not os.path.exists(clust_fan_dir):
     os.makedirs(clust_fan_dir)
 
+scans_to_use = range(100)
 for i in scans_to_use:
     clusters = np.unique(labels[i])
     # Cluster fanplot
@@ -132,14 +143,14 @@ for i in scans_to_use:
             fanplot.text(str(c), beam_c[m], gate_c[m])        # Label cluster #
         fanplot.plot(beam_c, gate_c, color)
 
-    plt.title('%s fanplot\nparams: %s' % (alg_dir, data_dict['params']))
+    plt.title('%s + %s fanplot\nparams: %s' % (alg_dir, gs_threshold, data_dict['params']))
     filename = '%s/%s_scan%d_fanplot.png' % (clust_fan_dir, rad_date, i)
     # plt.show()
     plt.savefig(filename)
     plt.close()
- """
-    # Velocity map
+
 """
+    # Velocity map
     fanplot = FanPlot(nrange=ngate, nbeam=nbeam)
     vel_step = 25
     vel_ranges = list(range(-200, 201, vel_step))
@@ -159,7 +170,7 @@ for i in scans_to_use:
     """
 
 
-""" OPTIONAL / SLOW :Plot individual clusters on RTI with stats - NOTE: for scan x scan algorithms, these will be NONSENSE 
+""" OPTIONAL / SLOW :Plot individual clusters on RTI with stats - NOTE: for scan x scan algorithms, these will be NONSENSE """
 clust_rti_dir = '%s/cluster rtiplots %d-%d-%d' % (dir, yr, mo, day)
 if not os.path.exists(clust_rti_dir):
     os.makedirs(clust_rti_dir)
@@ -191,7 +202,6 @@ for c in unique_clusters:
                   'beam': beam_flat[cluster_mask], 'gate': gate_flat[cluster_mask]}
     plot_stats_table(ax2, stats_data)
     filename = '%s/%s_cluster%d_rti.png' % (clust_rti_dir, rad_date, c)
-    # plt.show()
     plt.savefig(filename)
     plt.close()
     fig.clf()
@@ -200,4 +210,3 @@ filename = '%s/%s_00_allclusters_rti.png' % (clust_rti_dir, rad_date)
 plt.savefig(filename)
 plt.close()
 clust_fig.clf()
-"""

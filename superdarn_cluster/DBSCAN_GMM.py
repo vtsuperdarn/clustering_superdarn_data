@@ -1,10 +1,7 @@
 import numpy as np
 from sklearn.cluster import DBSCAN
-import copy
 from superdarn_cluster.time_utils import time_days_to_index
-from superdarn_cluster.utilities import blanchard_gs_flg
 from sklearn.mixture import GaussianMixture
-from superdarn_cluster.utilities import plot_clusters
 from scipy.stats import boxcox
 
 
@@ -60,7 +57,7 @@ class DBSCAN_GMM:
                 estimator.fit(data)
                 gmm_labels = estimator.predict(data)
                 gmm_labels += np.max(labels) + 1
-                labels[db_cluster_mask] = gmm_labels    # TODO make sure this works okay
+                labels[db_cluster_mask] = gmm_labels
             elif self.alg == 'k-means':
                 raise('k-means not yet implememnted')
             else:
