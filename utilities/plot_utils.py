@@ -394,7 +394,7 @@ def plot_clusters_colormesh(ax, unique_time, time_flat, gate, clust_range, clust
     cmap = plt.cm.jet #gist_ncar     # even more shade/color variations than Jet looks like
     unique_labels = np.unique(clust_labels)
 
-    for c in np.unique(unique_labels):
+    for c in unique_labels:
         clust_mask = c == clust_labels
         t = [np.where(tf == unique_time)[0][0] for tf in time_flat[clust_mask]]
         g = gate[clust_mask].astype(int)

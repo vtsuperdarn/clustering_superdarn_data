@@ -31,7 +31,7 @@ class GMM(Algorithm):
 
 
     def __init__(self, start_time, end_time, rad,
-                 n_clusters=3, cov='full',
+                 n_clusters=10, cov='full',
                  features=['beam', 'gate', 'time', 'vel', 'wid'],
                  loadPickle=False):
         super().__init__(start_time, end_time, rad,
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     start_time = datetime.datetime(2018, 2, 7)
     end_time = datetime.datetime(2018, 2, 8)
 
-    gmm = GMM(start_time, end_time, 'cvw', loadPickle=True)
+    gmm = GMM(start_time, end_time, 'cvw')
     gmm.pickle()
     print(gmm.__dict__.keys())
     gmm.plot_rti(8, 'Ribiero')
