@@ -21,6 +21,7 @@ def update_flags(data_dict, stats, clust_labels):
         clust_mask = c == clust_labels
         if c == -1:
             rib_labels[clust_mask] = -1  # Noise flag
+            # TODO the others also need to update this!!!!!!!!!!!
         else:
             rib_labels[clust_mask] = ribiero_gs_flg(vel[clust_mask], t[clust_mask])
             code_labels[clust_mask] = blanchard_gs_flg(vel[clust_mask], wid[clust_mask], 'code')

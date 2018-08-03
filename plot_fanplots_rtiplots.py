@@ -85,14 +85,12 @@ rti_dir = '%s/rti/%d/%s' % (dir, yr, rad)
 if not os.path.exists(rti_dir):
     os.makedirs(rti_dir)
 
-for b in [14]:#range(nbeam):
+for b in range(nbeam):
     fig = plt.figure(figsize=(14, 15))
     ax0 = plt.subplot(311)
     ax1 = plt.subplot(312)
     ax2 = plt.subplot(313)
     beam_filter = b == beams
-    if b == 14:
-        print('hi')
 
     plot_clusters_colormesh(ax0, unique_time, time_flat[beam_filter], gates[beam_filter], clust_range, random_labels_flat[beam_filter], ngate)
     name = '%s %s                           Clusters                           %s                            beam %d' \

@@ -34,9 +34,8 @@ If this does not work (happens on Ubuntu < 16) you can manually install dependen
 
 `pip install pandas`
 
-Now you can run the files (again, use python3 here if python2 is your default):
+Now you can run the files.
 
-`python plot_feature_selection.py`
 
 ### Windows setup
 
