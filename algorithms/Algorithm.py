@@ -85,21 +85,21 @@ class Algorithm(object):
 
         plot_clusters_colormesh(ax0, unique_time, time_flat[beam_filter], gates[beam_filter], clust_range,
                                 clust_flg[beam_filter], ngate)
-        name = '%s %s\t\t\t\tClusters\t\t\t\t%s\t\t\t\tbeam %d' \
-               % (self.rad.upper(), date_str, type(self).__name__, beam)
+        name = ('%s %s\t\t\t\tClusters\t\t\t\t%s\t\t\t\tbeam %d' \
+               % (self.rad.upper(), date_str, type(self).__name__, beam)).expandtabs()
         ax0.set_title(name)
         ax0.xaxis.set_major_locator(hours)
         plot_is_gs_colormesh(ax1, unique_time, time_flat[beam_filter], gates[beam_filter], gs_flg[beam_filter],
                              ngate,
                              plot_indeterminate=False, plot_closerange=True)
-        name = '%s %s\t\t\t\tIS/GS\t\t\t\t%s / %s threshold\t\t\t\tbeam %d' \
-               % (self.rad.upper(), date_str, alg, threshold, beam)
+        name = ('%s %s\t\t\t\tIS/GS\t\t\t\t%s / %s threshold\t\t\t\tbeam %d' \
+               % (self.rad.upper(), date_str, alg, threshold, beam)).expandtabs()
         ax1.set_title(name)
         ax1.xaxis.set_major_locator(hours)
         plot_vel_colormesh(fig, ax2, unique_time, time_flat[beam_filter], gates[beam_filter], vels[beam_filter],
                            ngate)
-        name = '%s %s\t\t\t\t\t\t\t\tVelocity\t\t\t\t\t\t\t\tbeam %d' \
-               % (self.rad.upper(), date_str, beam)
+        name = ('%s %s\t\t\t\t\t\t\t\tVelocity\t\t\t\t\t\t\t\tbeam %d' \
+               % (self.rad.upper(), date_str, beam)).expandtabs()
         ax2.set_title(name)
         ax2.xaxis.set_major_locator(hours)
         plt.show()
