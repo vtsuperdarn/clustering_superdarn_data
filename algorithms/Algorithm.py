@@ -51,50 +51,48 @@ class Algorithm(object):
         :param save: if False, show plot; if True, save plot to file
         :return:
         """
+        from utilities.RangeTimePlot import RangeTimePlot
+        unique_times = np.unique(np.hstack(self.data_dict['time']))
+        nrang = self.data_dict['nrang']
+        gs_flg = np.hstack(self.data_dict['trad_gsflg'])#np.hstack(self._classify(threshold))
+        rtp = RangeTimePlot(nrang, unique_times)
+        rtp.addClusterPlot(self.data_dict, self.clust_flg, beam)
+        rtp.addGSISPlot(self.data_dict, gs_flg, beam)
+
+        rtp.show()
+
+
         # TODO add directory to save to
-        import copy
+        """
         import matplotlib.pyplot as plt
         from utilities.plot_utils import plot_is_gs_colormesh, plot_clusters_colormesh, plot_vel_colormesh
-        import matplotlib.dates as mdates
 
         gs_flg = np.hstack(self._classify(threshold))
-        time_flat = np.hstack(np.array(self.data_dict['time']))
-        unique_time = np.unique(time_flat)
-        beams = np.hstack(np.array(self.data_dict['beam']))
-        gates = np.hstack(np.array(self.data_dict['gate']))
-        vels = np.hstack(np.array(self.data_dict['vel']))
-        clust_flg = np.hstack(self.clust_flg)
-        unique_clusters = np.unique(clust_flg)
-
-        # TODO move this to plot_clusters_colormesh or do something else with it ... it assumes noise. need to standardize cluster #s
-        # and not assumer there will always be nosie
-        np.random.seed(0)
+        unique_clusters = np.unique(np.hstack(self.clust_flg))
 
         alg = type(self).__name__
         date_str = self.start_time.strftime('%m-%d-%Y')
         ngate = self.data_dict['nrang']
-        hours = mdates.HourLocator(byhour=range(0, 24, 4))
 
         fig = plt.figure(figsize=(14, 15))
         ax0 = plt.subplot(311)
         ax1 = plt.subplot(312)
         ax2 = plt.subplot(313)
-        beam_mask = beam == beams
-        num_clusters = len(np.unique(clust_flg[beam_mask]))
 
-        clust_range = list(range(5))
-        plot_clusters_colormesh(ax0, unique_time, time_flat[beam_mask], gates[beam_mask], clust_range,
-                                clust_flg[beam_mask], ngate)
+        # Have this take a data_dict, beam, and axis. Set the name within the function.
+        plot_clusters_colormesh(ax0, self.data_dict, self.clust_flg, beam)
         name = ('%s %s\t\t\t\t%d clusters\t\t\t\t%s\t\t\t\tbeam %d'
                 % (self.rad.upper(), date_str, len(unique_clusters), type(self).__name__, beam)).expandtabs()
         ax0.set_title(name)
-        ax0.xaxis.set_major_locator(hours)
+        plt.show()
+
         plot_is_gs_colormesh(ax1, unique_time, time_flat[beam_mask], gates[beam_mask], gs_flg[beam_mask],
                              ngate, plot_indeterminate=False, plot_closerange=True)
         name = ('%s %s\t\t\t\tIS/GS\t\t\t\t%s / %s threshold\t\t\t\tbeam %d'
                 % (self.rad.upper(), date_str, alg, threshold, beam)).expandtabs()
         ax1.set_title(name)
         ax1.xaxis.set_major_locator(hours)
+
         plot_vel_colormesh(fig, ax2, unique_time, time_flat[beam_mask], gates[beam_mask], vels[beam_mask],
                            ngate)
         name = ('%s %s\t\t\t\t\t\t\t\tVelocity\t\t\t\t\t\t\t\tbeam %d'
@@ -104,6 +102,8 @@ class Algorithm(object):
         plt.show()
         #plt.savefig('%s/%s_%d%02d%02d_%02d.jpg' % (rti_dir, rad, yr, mo, day, b))
         #fig.clf()  # Necessary to prevent memory explosion
+        """
+
 
     def plot_fanplot(self, start_time, end_time):
         # TODO
@@ -153,22 +153,19 @@ class Algorithm(object):
         return scans
 
 
-    # TODO maybe make this human-readable, so I can tell which params i've run the algorithm with
-    # also you can add a function to print loadable params
+    # TODO add a function to print loadable params
     def _get_pickle_path(self):
         """
         Get path to the unique pickle file for an object with this time/radar/params/algorithm
         :return: path to pickle file (string)
         """
         # Create a unique filename based on params
-        m = hashlib.md5()
-        m.update(str(self.start_time).encode('ascii'))
-        m.update(str(self.end_time).encode('ascii'))
-        m.update(self.rad.encode('ascii'))
-        m.update(str(self.params).encode('ascii'))  # algorithm parameters
-        hash_str = binascii.hexlify(m.digest()).decode('ascii')
+        filename = '%s_%s_%s_%s' % (self.rad,
+                                    self.start_time.strftime('%Y%m%d-%H:%M:%S'),
+                                    self.end_time.strftime('%Y%m%d-%H:%M:%S'),
+                                    str(self.params))
         # Save the pickle
-        return self.pickle_dir + '/' + hash_str + '.pickle'
+        return self.pickle_dir + '/' + filename + '.pickle'
 
 
     def _read_pickle(self):

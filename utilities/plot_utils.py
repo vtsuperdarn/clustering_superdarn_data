@@ -382,36 +382,46 @@ def add_colorbar(fig, bounds, colormap, pos=[0.925, 0.11, 0.015, 0.225], label='
                                     orientation='vertical')
     cb2.set_label(label)
 
-def plot_clusters_colormesh(ax, unique_time, time_flat, gate, clust_range, clust_labels, num_range_gates):
+def plot_clusters_colormesh(ax, data_dict, clust_flg, beam):
     import numpy as np
     import matplotlib as mpl
     from matplotlib.dates import DateFormatter
     import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
 
+    # Flatten out scan by scan data to 1D arrays
+    time_flat = np.hstack(data_dict['time'])
+    beams = np.hstack(data_dict['beam'])
+    gates = np.hstack(data_dict['gate'])
+    clust_flg = np.hstack(clust_flg)
+    # Prepare variables
+    unique_time = np.unique(time_flat)
     num_times = len(unique_time)
-    color_mesh = np.zeros((num_times, num_range_gates)) * np.nan
-
+    unique_clusters = np.unique(clust_flg)
+    clust_range = list(range(len(unique_clusters)+1))     # +1 in case label #s start at 1
+    nrang = data_dict['nrang']
+    beam_mask = beams == beam
+    # Set up an empty array of (ntimes) x (nrang)
+    color_mesh = np.zeros((num_times, nrang)) * np.nan
     cmap = plt.cm.jet #gist_ncar     # even more shade/color variations than Jet looks like
-    unique_labels = np.unique(clust_labels)
-
-    for c in unique_labels:
-        clust_mask = c == clust_labels
+    # Add cluster labels to the array
+    for c in unique_clusters:
+        clust_mask = (c == clust_flg) & (beam_mask)        # Only use clusters from the chosen beam
         t = [np.where(tf == unique_time)[0][0] for tf in time_flat[clust_mask]]
-        g = gate[clust_mask].astype(int)
+        g = gates[clust_mask].astype(int)
         color_mesh[t, g] = c
-
-    # Create a matrix of the right size
-    range_gate = np.linspace(1, num_range_gates, num_range_gates)
+    #
+    range_gate = np.linspace(1, nrang, nrang)
     mesh_x, mesh_y = np.meshgrid(unique_time, range_gate)
-    invalid_data = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)
-
+    masked_data = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)  # Masked to remove invalid data (NAN)
     norm = mpl.colors.BoundaryNorm(clust_range, cmap.N)
-    cmap.set_bad('w', alpha=0.0)                        #TODO maybe I can get this to be black for noise
     ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+    hours = mdates.HourLocator(byhour=range(0, 24, 4))
+    ax.xaxis.set_major_locator(hours)
     ax.set_xlabel('UT')
     ax.set_xlim([unique_time[0], unique_time[-1]])
     ax.set_ylabel('Range gate')
-    ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
+    ax.pcolormesh(mesh_x, mesh_y, masked_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
 
 
 #TODO making this and related functions into a class might simplify all this code and allow for more customization
