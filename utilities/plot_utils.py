@@ -1,466 +1,141 @@
-# TODO rename this to 'plot_utils' and non-plot stuff elsewhere
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.dates as mdates
+from matplotlib.dates import DateFormatter
 
 
-def genCmap(param, scale, colors='lasse', lowGray=False):
-    """From DavitPy https://github.com/vtsuperdarn/davitpy
-
-    Generates a colormap and returns the necessary components to use it
-
-    Parameters
-    ----------
-    param : str
-        the parameter being plotted ('velocity' and 'phi0' are special cases,
-        anything else gets the same color scale)
-    scale : list
-        a list with the [min,max] values of the color scale
-    colors : Optional[str]
-        a string indicating which colorbar to use, valid inputs are
-        'lasse', 'aj'.  default = 'lasse'
-    lowGray : Optional[boolean]
-        a flag indicating whether to plot low velocities (|v| < 15 m/s) in
-        gray.  default = False
-
-    Returns
-    -------
-    cmap : matplotlib.colors.ListedColormap
-        the colormap generated.  This then gets passed to the mpl plotting
-        function (e.g. scatter, plot, LineCollection, etc.)
-    norm : matplotlib.colors.BoundaryNorm
-        the colormap index.  This then gets passed to the mpl plotting
-        function (e.g. scatter, plot, LineCollection, etc.)
-    bounds : list
-        the boundaries of each of the colormap segments.  This can be used
-        to manually label the colorbar, for example.
-
-    Example
-    -------
-        cmap,norm,bounds = genCmap('velocity', [-200,200], colors='aj', lowGray=True)
-
-    Written by AJ 20120820
-
+class RangeTimePlot(object):
     """
-    import matplotlib,numpy
-    import matplotlib.pyplot as plot
+    Create plots for IS/GS flags, velocity, and algorithm clusters.
+    """
 
-    #the MPL colormaps we will be using
+    def __init__(self, nrang, unique_times, num_subplots=3):
+        self.nrang = nrang
+        self.unique_gates = np.linspace(1, nrang, nrang)
+        self.unique_times = unique_times
+        self.num_subplots = num_subplots
+        self._num_subplots_created = 0
+        self.fig = plt.figure(figsize=(14, 5*num_subplots))
 
-    cmj = matplotlib.cm.jet
-    cmpr = matplotlib.cm.prism
 
-
-    if(param == 'velocity'):
-        #check for what color scale we want to use
-        if(colors == 'aj'):
-            if(not lowGray):
-                #define our discrete colorbar
-                cmap = matplotlib.colors.ListedColormap([cmpr(.142), cmpr(.125),
-                                                         cmpr(.11), cmpr(.1),
-                                                         cmpr(.175), cmpr(.158),
-                                                         cmj(.32), cmj(.37)])
-            else:
-                cmap = matplotlib.colors.ListedColormap([cmpr(.142), cmpr(.125),
-                                                         cmpr(.11), cmpr(.1),
-                                                         '.6', cmpr(.175),
-                                                         cmpr(.158), cmj(.32),
-                                                         cmj(.37)])
+    def addClusterPlot(self, data_dict, clust_flg, beam, title, show_closerange=True):
+        # add new axis
+        self.cluster_ax = self._add_axis()
+        # set up variables for plotter
+        time = np.hstack(data_dict['time'])
+        gate = np.hstack(data_dict['gate'])
+        allbeam = np.hstack(data_dict['beam'])
+        flags = np.hstack(clust_flg)
+        mask = allbeam == beam
+        if show_closerange:
+            mask = mask & (gate > 10)
+        if -1 in flags:                     # contains noise flag
+            cmap = plt.cm.nipy_spectral     # includes white and black at edges
+            n_clusters = np.max(flags)
+            bounds = list(range(n_clusters+2))
+            bounds_noise_adjust = 10 + int(n_clusters / 10) # TODO what should this be?
+            bounds.append(bounds[-1] + bounds_noise_adjust)                 # white
+            bounds.insert((bounds[0] - bounds_noise_adjust), 0)             # black
+            flags[flags == -1] = (bounds[0] - bounds_noise_adjust)          # set noise black
         else:
-            if(not lowGray):
-                #define our discrete colorbar
-                cmap = matplotlib.colors.ListedColormap([cmj(.9), cmj(.8),
-                                                         cmj(.7), cmj(.65),
-                                                         cmpr(.142), cmj(.45),
-                                                         cmj(.3), cmj(.1)])
-            else:
-                cmap = matplotlib.colors.ListedColormap([cmj(.9), cmj(.8),
-                                                         cmj(.7), cmj(.65),
-                                                         '.6', cmpr(.142),
-                                                         cmj(.45), cmj(.3),
-                                                         cmj(.1)])
+            cmap = plt.cm.hsv                       # no black or white
+            n_clusters = np.max(flags)
+            bounds = list(range(n_clusters+1))       # add 1 in case labels start at 0
+        self._create_colormesh(self.cluster_ax, time, gate, flags, mask, bounds, cmap)
+        self.cluster_ax.set_title(title)
 
-        #define the boundaries for color assignments
-        bounds = numpy.round(numpy.linspace(scale[0],scale[1],7))
-        if(lowGray):
-            bounds[3] = -15.
-            bounds = numpy.insert(bounds,4,15.)
-        bounds = numpy.insert(bounds,0,-50000.)
-        bounds = numpy.append(bounds,50000.)
-        norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
-    elif(param == 'phi0'):
-        #check for what color scale we want to use
-        if(colors == 'aj'):
-            #define our discrete colorbar
-            cmap = matplotlib.colors.ListedColormap([cmpr(.142), cmpr(.125),
-                                                     cmpr(.11), cmpr(.1),
-                                                     cmpr(.18), cmpr(.16),
-                                                     cmj(.32), cmj(.37)])
+
+    def addGSISPlot(self, data_dict, gs_flg, beam, title, show_closerange=True):
+        # add new axis
+        self.isgs_ax = self._add_axis()
+        # set up variables for plotter
+        time = np.hstack(data_dict['time'])
+        gate = np.hstack(data_dict['gate'])
+        allbeam = np.hstack(data_dict['beam'])
+        flags = np.hstack(gs_flg)
+        mask = allbeam == beam
+        if show_closerange:
+            mask = mask & (gate > 10)
+        if -1 in flags:                     # contains noise flag
+            cmap = mpl.colors.ListedColormap([(0.0, 0.0, 0.0, 1.0),     # black
+                                              (1.0, 0.0, 0.0, 1.0),     # blue
+                                              (0.0, 0.0, 1.0, 1.0)])    # red
+            bounds = [-1, 0, 1, 2] # TODO may need some outlier bounds?
         else:
-            #define our discrete colorbar
-            cmap = matplotlib.colors.ListedColormap([cmj(.9), cmj(.8), cmj(.7),
-                                                     cmj(.65), cmpr(.142),
-                                                     cmj(.45), cmj(.3),
-                                                     cmj(.1)])
-
-        #define the boundaries for color assignments
-        bounds = numpy.linspace(scale[0],scale[1],9)
-        norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
-    elif(param == 'grid'):
-        #check what color scale we want to use
-        if(colors == 'aj'):
-            #define our discrete colorbar
-            cmap = matplotlib.colors.ListedColormap([cmpr(.175), cmpr(.17),
-                                                     cmj(.32), cmj(.37),
-                                                     cmpr(.142), cmpr(.13),
-                                                     cmpr(.11), cmpr(.10)])
-        else:
-            #define our discrete colorbar
-            cmap = matplotlib.colors.ListedColormap([cmj(.1), cmj(.3), cmj(.45),
-                                                     cmpr(.142), cmj(.65),
-                                                     cmj(.7), cmj(.8), cmj(.9)])
-
-        #define the boundaries for color assignments
-        bounds = numpy.round(numpy.linspace(scale[0],scale[1],8))
-        bounds = numpy.append(bounds,50000.)
-        norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
-    else:
-        # If its a non-velocity plot, check what color scale we want to use
-        if(colors == 'aj'):
-            #define our discrete colorbar
-            cmap = matplotlib.colors.ListedColormap([cmpr(.175), cmpr(.158),
-                                                     cmj(.32), cmj(.37),
-                                                     cmpr(.142), cmpr(.13),
-                                                     cmpr(.11), cmpr(.10)])
-        else:
-            #define our discrete colorbar
-            cmap = matplotlib.colors.ListedColormap([cmj(.1), cmj(.3), cmj(.45),
-                                                     cmpr(.142), cmj(.65),
-                                                     cmj(.7), cmj(.8), cmj(.9)])
-
-        #define the boundaries for color assignments
-        bounds = numpy.round(numpy.linspace(scale[0],scale[1],8))
-        bounds = numpy.append(bounds,50000.)
-        norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
-
-    cmap.set_bad('w',1.0)
-    cmap.set_over('w',1.0)
-    cmap.set_under('.6',1.0)
-
-    return cmap,norm,bounds
-
-def drawCB(fig, coll, cmap, norm, map_plot=False, pos=[0,0,1,1]):
-    """ From DavitPy https://github.com/vtsuperdarn/davitpy
-
-    manually draws a colorbar on a figure.  This can be used in lieu of
-    the standard mpl colorbar function if you need the colorbar in a specific
-    location.  See :func:`pydarn.plotting.rti.plotRti` for an example of its
-    use.
-
-    Parameters
-    ----------
-    fig : matplotlib.figure.Figure
-        the figure being drawn on.
-    coll : matplotlib.collections.Collection
-        the collection using this colorbar
-    cmap : matplotlib.colors.ListedColormap
-        the colormap being used
-    norm : matplotlib.colors.BoundaryNorm
-        the colormap index being used
-    map_plot : Optional[bool]
-        a flag indicating the we are drawing the colorbar on a figure with
-        a map plot
-    pos : Optional[list]
-        the position of the colorbar.  format = [left,bottom,width,height]
-
-    Returns
-    -------
-    cb
-
-    Example
-    -------
-
-    Written by AJ 20120820
-
-    """
-    import matplotlib.pyplot as plot
-
-    if not map_plot:
-        # create a new axes for the colorbar
-        cax = fig.add_axes(pos)
-        # set the colormap and boundaries for the collection of plotted items
-        if(isinstance(coll,list)):
-            for c in coll:
-                c.set_cmap(cmap)
-                c.set_norm(norm)
-                cb = plot.colorbar(c,cax=cax,drawedges=True)
-        else:
-            coll.set_cmap(cmap)
-            coll.set_norm(norm)
-            cb = plot.colorbar(coll,cax=cax,drawedges=True)
-    else:
-        if(isinstance(coll,list)):
-            for c in coll:
-                c.set_cmap(cmap)
-                c.set_norm(norm)
-                cb = fig.colorbar(c,location='right',drawedges=True)
-        else:
-            coll.set_cmap(cmap)
-            coll.set_norm(norm)
-            cb = fig.colorbar(coll,location='right',pad="5%",drawedges=True)
-
-    cb.ax.tick_params(axis='y',direction='out')
-    return cb
+            cmap = mpl.colors.ListedColormap([(0.0, 0.0, 1.0, 1.0),  # blue
+                                       (1.0, 0.0, 0.0, 1.0)])  # red
+            bounds = [0, 1, 2]  # TODO may need some outlier bounds?
+        self._create_colormesh(self.isgs_ax, time, gate, flags, mask, bounds, cmap)
+        self.isgs_ax.set_title(title)
 
 
-#TODO why does this appear twice?
-"""
-def plot_clusters_colormesh(x, x_name, y, y_name, cluster_membership):
-    
-    Plot x vs. y, color-coded by cluster using a color mesh
-    :param x:
-    :param x_name:
-    :param y:
-    :param y_name:
-    :param cluster_membership: list of integer cluster memberships. len(x) = len(y) = len(cluster_membership)
-    :return:
-    
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    y_size = len(np.unique(y))
-    y_min = np.min(y)
-    y_max = np.max(y)
-
-    x_size = len(np.unique(x))
-    x_min = np.min(x)
-    x_max = np.max(x)
-
-    color_mesh = np.zeros((x_size, y_size)) * np.nan
-    plot_param = 'velocity'
-
-    # Create a (num times) x (num range gates) map of cluster values.
-    # The colormap will then plot those values as cluster values.
-    # cluster_color = np.linspace(-200, 200, num_clusters)
-    for k in range(len(cluster_membership)):
-        color = k
-        # Cluster membership indices correspond to the flattened data, which may contain repeat time values
-        for i in cluster_membership[k]:
-            ii = np.where(x == x[i])[0][0]
-            matching_y = y[ii]
-
-            for my in matching_y:
-                color_mesh[ii, my] = color
-
-    # Create a matrix of the right size
-    mesh_x, mesh_y = np.meshgrid(np.linspace(x_min, x_max, x_size), np.linspace(y_min, y_max, y_size))
-    invalid_data = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)
-    #Zm = np.ma.masked_where(np.isnan(data[:tcnt][:].T), data[:tcnt][:].T)
-    # Set colormap so that masked data (bad) is transparent.
-
-    cmap, norm, bounds = genCmap(plot_param, [0, len(cluster_membership)],
-                                                 colors = 'lasse',
-                                                 lowGray = False)
-    cmap.set_bad('w', alpha=0.0)
-
-    pos=[.1, .1, .76, .72]
-    fig = plt.figure(figsize=(20, 8))
-    ax = fig.add_axes(pos)
-    ax.set_xlabel(x_name)
-    ax.set_ylabel(y_name)
-    #ax.set_title(title_str+' '+start_time.strftime("%d %b %Y") + ' ' + rad.upper())
-    colormesh = ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
-
-    # Draw the colorbar.
-    cb = drawCB(fig, colormesh, cmap, norm, map_plot=0,
-                      pos=[pos[0] + pos[2] + .02, pos[1], 0.02, pos[3]])
-"""
-
-def plot_is_gs_scatterplot(time, gate, gs_flg, title):
-    """
-    Plot IS and GS scatterplot
-    :param time:
-    :param gate:
-    :param gs_flg:
-    :param title:
-    :return:
-    """
-    from matplotlib.dates import DateFormatter
-    import matplotlib.pyplot as plt
-
-    cm = plt.cm.get_cmap('coolwarm')
-    alpha = 0.2
-    size = 1
-    marker = 's'
-    fig = plt.figure(figsize=(6,6))
-
-    plt.scatter(time[gs_flg == 0], gate[gs_flg == 0],s=size,c='red',marker=marker, alpha=alpha, cmap=cm)  #plot IS as red
-    plt.scatter(time[gs_flg == 1], gate[gs_flg == 1],s=size,c='blue',marker=marker, alpha=alpha, cmap=cm) #plot GS as blue
-    #plt.scatter(emp_time[emp_gs_flg == -1], emp_gate[emp_gs_flg == -1],s=size,c='blue',marker=marker, alpha=alpha)  #plot the undertermined scatter as blue
-    ax=plt.gca()
-    ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
-    #ax1.set_xlabel('Time UT')
-    ax.set_ylabel('Range gate')
-    ax.set_title(title)
-    # TODO get rid of this here
-    plt.savefig(title + ".png")
-
-def plot_is_gs_colormesh(ax, unique_time, time_flat, gate, gs_flg, num_range_gates, plot_closerange=False, plot_indeterminate=False):
-    """
-    :param ax: matplotlib axis to draw on
-    :param unique_time: all the unique times from a scan
-                        [date2num(d) for d in data_dict['datetime']]
-                        Don't filter this to match scatter from time_flat, gate, gs_flg! Plot will not look right.
-    :param time_flat: non-unique times
-    :param gate:
-    :param gs_flg:
-    :param num_range_gates:
-    :param plot_closerange:
-    :param plot_indeterminate:
-    :return:
-    """
-    #from matplotlib.dates import date2num
-    import numpy as np
-    import matplotlib as mpl
-    from matplotlib.dates import DateFormatter
-
-    num_times = len(unique_time)
-    color_mesh = np.zeros((num_times, num_range_gates)) * np.nan
-
-    # For IS (0) and GS (1)
-    colors = [1, 2, 3]    #Will make IS (label=0) red and GS (label=1) blue
-    for label in [0, 1, -1]:
-        i_match = np.where(gs_flg == label)[0]
-        for i in i_match:
-            t = np.where(time_flat[i] == unique_time)[0][0]      # One timestamp, multiple gates.
-            g = int(gate[i])
-            if g <= 10 and not plot_closerange:
-                continue
-            if plot_indeterminate and label == -1:
-                color_mesh[t, g] = colors[2]
-            else:
-                color_mesh[t, g] = colors[np.abs(label)]
+    def addVelPlot(self, data_dict, beam, title, vel_max=200, vel_step=25, show_closerange=True):
+        # add new axis
+        self.vel_ax = self._add_axis()
+        # set up variables for plotter
+        time = np.hstack(data_dict['time'])
+        gate = np.hstack(data_dict['gate'])
+        allbeam = np.hstack(data_dict['beam'])
+        flags = np.hstack(data_dict['vel'])
+        bounds = list(range(-vel_max, vel_max+1, vel_step))
+        cmap = plt.cm.jet
+        mask = allbeam == beam
+        self._create_colormesh(self.vel_ax, time, gate, flags, mask, bounds, cmap)
+        self._add_colorbar(self.vel_ax, bounds, cmap, label='Velocity')
+        self.vel_ax.set_title(title)
 
 
-    # Create a matrix of the right size
-    range_gate = np.linspace(1, num_range_gates, num_range_gates)
-    mesh_x, mesh_y = np.meshgrid(unique_time, range_gate)
-    invalid_data = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)
-
-    #cmap, norm, bounds = utilities.genCmap('is-gs', [0, 3], colors='lasse', lowGray=False)
-    cmap = mpl.colors.ListedColormap([(1.0, 0.0, 0.0, 1.0), (0.0, 0.0, 1.0, 1.0), (0.0, 0.0, 0.0, 1.0)])
-    bounds = np.round(np.linspace(colors[0], colors[2], 3))
-    bounds = np.insert(bounds, 0, -50000.)
-    bounds = np.append(bounds, 50000.)
-    norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-    cmap.set_bad('w', alpha=0.0)
-
-    import matplotlib.patches as mpatches
-    handles = [mpatches.Patch(color='red', label='IS'), mpatches.Patch(color='blue', label='GS')]
-    ax.legend(handles=handles, loc=4) # default value for loc is 'optimal', which is EXTREMELY SLOW for this plot
-
-    ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
-    ax.set_xlabel('UT')
-    ax.set_xlim([unique_time[0], unique_time[-1]])
-    ax.set_ylabel('Range gate')
-    ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
+    def show(self):
+        plt.show()
 
 
-def add_colorbar(fig, bounds, colormap, pos=[0.925, 0.11, 0.015, 0.225], label=''):
-    """
-    :param fig:
-    :param bounds:
-    :param colormap:
-    :param pos: [left, bottom, width, height] values are 0.0 - 1.0
-    :param label:
-    :return:
-    """
-    import matplotlib as mpl
-    cax = fig.add_axes(pos)   # this list defines (left, bottom, width, height)
-    norm = mpl.colors.BoundaryNorm(bounds, colormap.N)
-    cb2 = mpl.colorbar.ColorbarBase(cax, cmap=colormap,
-                                    norm=norm,
-                                    ticks=bounds,
-                                    spacing='uniform',
-                                    orientation='vertical')
-    cb2.set_label(label)
+    # Private helper functions
 
-def plot_clusters_colormesh(ax, data_dict, clust_flg, beam):
-    import numpy as np
-    import matplotlib as mpl
-    from matplotlib.dates import DateFormatter
-    import matplotlib.pyplot as plt
-    import matplotlib.dates as mdates
-
-    # Flatten out scan by scan data to 1D arrays
-    time_flat = np.hstack(data_dict['time'])
-    beams = np.hstack(data_dict['beam'])
-    gates = np.hstack(data_dict['gate'])
-    clust_flg = np.hstack(clust_flg)
-    # Prepare variables
-    unique_time = np.unique(time_flat)
-    num_times = len(unique_time)
-    unique_clusters = np.unique(clust_flg)
-    clust_range = list(range(len(unique_clusters)+1))     # +1 in case label #s start at 1
-    nrang = data_dict['nrang']
-    beam_mask = beams == beam
-    # Set up an empty array of (ntimes) x (nrang)
-    color_mesh = np.zeros((num_times, nrang)) * np.nan
-    cmap = plt.cm.jet #gist_ncar     # even more shade/color variations than Jet looks like
-    # Add cluster labels to the array
-    for c in unique_clusters:
-        clust_mask = (c == clust_flg) & (beam_mask)        # Only use clusters from the chosen beam
-        t = [np.where(tf == unique_time)[0][0] for tf in time_flat[clust_mask]]
-        g = gates[clust_mask].astype(int)
-        color_mesh[t, g] = c
-    #
-    range_gate = np.linspace(1, nrang, nrang)
-    mesh_x, mesh_y = np.meshgrid(unique_time, range_gate)
-    masked_data = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)  # Masked to remove invalid data (NAN)
-    norm = mpl.colors.BoundaryNorm(clust_range, cmap.N)
-    ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
-    hours = mdates.HourLocator(byhour=range(0, 24, 4))
-    ax.xaxis.set_major_locator(hours)
-    ax.set_xlabel('UT')
-    ax.set_xlim([unique_time[0], unique_time[-1]])
-    ax.set_ylabel('Range gate')
-    ax.pcolormesh(mesh_x, mesh_y, masked_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
+    def _add_axis(self):
+        self._num_subplots_created += 1
+        ax = self.fig.add_subplot(self.num_subplots, 1, self._num_subplots_created)
+        return ax
 
 
-#TODO making this and related functions into a class might simplify all this code and allow for more customization
-def plot_vel_colormesh(fig, ax, unique_time, time_flat, gate, vel, num_range_gates):
-    import numpy as np
-    import matplotlib as mpl
-    from matplotlib.dates import DateFormatter
-    import matplotlib.pyplot as plt
+    def _add_colorbar(self, ax, bounds, cmap, label=''):
+        # position the colorbar to the right of the axis
+        pos = ax.get_position()
+        cpos = [pos.x0 + 0.8, pos.y0 + 0.0125, 0.015, pos.height * 0.9]
+        # create axis for colorbar
+        cax = self.fig.add_axes(cpos)
+        norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+        cb2 = mpl.colorbar.ColorbarBase(cax, cmap=cmap,
+                                        norm=norm,
+                                        ticks=bounds,
+                                        spacing='uniform',
+                                        orientation='vertical')
+        cb2.set_label(label)
 
-    num_times = len(unique_time)
-    color_mesh = np.zeros((num_times, num_range_gates)) * np.nan
 
-    vel_step = 10
-    vel_ranges = list(range(-100, 101, vel_step))
-    vel_ranges.insert(0, -9999)
-    vel_ranges.append(9999)
-    cmap = plt.cm.jet  # use 'viridis' to make this redgreen colorblind proof
-    for s in range(len(vel_ranges) - 1):
-        step_mask = (vel >= vel_ranges[s]) & (vel < (vel_ranges[s + 1]))
-        t = [np.where(tf == unique_time)[0][0] for tf in time_flat[step_mask]]
-        g = gate[step_mask].astype(int)
-        color_mesh[t, g] = (vel_ranges[s] + 0.5 * vel_step)
+    def _create_colormesh(self, ax, time, gate, flags, mask, bounds, cmap):
+        # Create a (n times) x (n range gates) array and add flag data
+        num_times = len(self.unique_times)
+        color_mesh = np.zeros((num_times, self.nrang)) * np.nan
+        for f in np.unique(flags):
+            flag_mask = (flags == f) & mask
+            t = [np.where(tf == self.unique_times)[0][0] for tf in time[flag_mask]]
+            g = gate[flag_mask].astype(int)
+            color_mesh[t, g] = f
+        # Set up variables for pcolormesh
+        mesh_x, mesh_y = np.meshgrid(self.unique_times, self.unique_gates)
+        masked_colormesh = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)
+        norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+        # Configure axes
+        ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
+        hours = mdates.HourLocator(byhour=range(0, 24, 4))
+        ax.xaxis.set_major_locator(hours)
+        ax.set_xlabel('UT')
+        ax.set_xlim([self.unique_times[0], self.unique_times[-1]])
+        ax.set_ylabel('Range gate')
+        ax.pcolormesh(mesh_x, mesh_y, masked_colormesh, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
 
-    # Create a matrix of the right size
-    range_gate = np.linspace(1, num_range_gates, num_range_gates)
-    mesh_x, mesh_y = np.meshgrid(unique_time, range_gate)
-    invalid_data = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)
 
-    norm = mpl.colors.BoundaryNorm(vel_ranges, cmap.N)
-    cmap.set_bad('w', alpha=0.0)
-    ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
-    ax.set_xlabel('UT')
-    ax.set_xlim([unique_time[0], unique_time[-1]])
-    ax.set_ylabel('Range gate')
-    ax.pcolormesh(mesh_x, mesh_y, invalid_data, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
-
-    # TODO this assumes ax is in the 313 position, and places the colorbar next to it. May not always be the case.
-    # Would be easier to manage this if it were a class.
-    add_colorbar(fig, vel_ranges, cmap, label='Vel')
 
 def plot_stats_table(ax, stats_data_dict):
     """
@@ -488,7 +163,48 @@ def plot_stats_table(ax, stats_data_dict):
     ax.table(cellText=feature_values, rowLabels=rowLabels, colLabels=feature_names, loc='center')
 
 
-def make_ellipses(model, ax, n_cluster, f1, f2):
+def plot_feature_pairs_by_cluster(data_flat, estimator, feature_names, save=True, base_path = ''):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from math import ceil
+    """ Transformed features
+    gate = gate ** 2      # RG = RG^2
+    wid = np.sign(wid) * np.log(np.abs(wid))
+    vel = np.sign(vel) * np.log(np.abs(vel))
+    power = np.abs(power) ** 1.5
+    """
+
+    num_features = len(feature_names)
+    cluster_ids = estimator.predict(data_flat)
+    num_clusters = len(np.unique(cluster_ids))
+    colors = plt.cm.plasma(np.linspace(0, 1, num_clusters))
+
+    for f1 in range(num_features):
+        for f2 in range(f1+1, num_features):
+            plt.figure(figsize=(20, 12))
+            plot_name = feature_names[f1] + " vs " + feature_names[f2]
+
+            for c in range(num_clusters):
+
+                ax = plt.subplot(2, ceil(num_clusters / 2.0), c + 1)
+                ax.scatter(data_flat[cluster_ids == c, f1], data_flat[cluster_ids == c, f2],
+                           alpha=0.1, marker='x', color=colors[c])
+
+                _make_ellipses(estimator, ax, c, f1, f2)
+
+
+                plt.xlabel(feature_names[f1])
+                plt.ylabel((feature_names[f2]))
+                plt.title(plot_name)
+
+            if save:
+                plt.savefig(base_path + plot_name + '.png')
+                plt.close()
+            else:
+                plt.show()
+
+
+def _make_ellipses(model, ax, n_cluster, f1, f2):
     """
     Plot an ellipse representing one cluster in GMM.
 
@@ -527,57 +243,3 @@ def make_ellipses(model, ax, n_cluster, f1, f2):
     ell.set_clip_box(ax.bbox)
     ell.set_alpha(0.5)
     ax.add_artist(ell)
-
-def plot_feature_pairs_by_cluster(data_flat, estimator, feature_names, save=True, base_path = ''):
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from math import ceil
-    """
-    gate = gate ** 2      # RG = RG^2
-    wid = np.sign(wid) * np.log(np.abs(wid))
-    vel = np.sign(vel) * np.log(np.abs(vel))
-    power = np.abs(power) ** 1.5
-    """
-
-
-    #gs_flg_gmm, clusters, median_vels_gmm, estimator = gmm(data_flat, vel, wid, num_clusters=num_clusters, cluster_identities=True)
-
-    num_features = len(feature_names)
-    cluster_ids = estimator.predict(data_flat)
-    #velocity_ordering = np.argsort(median_vels_gmm)
-    #clusters = [clusters[i] for i in velocity_ordering]
-    #median_vels_gmm = [median_vels_gmm[i] for i in velocity_ordering]
-    #cluster_labels = [("GS" if mvel < 15 else "IS") for mvel in median_vels_gmm]
-    num_clusters = len(np.unique(cluster_ids))
-    colors = plt.cm.plasma(np.linspace(0, 1, num_clusters))
-
-    for f1 in range(num_features):
-        for f2 in range(f1+1, num_features):
-            plt.figure(figsize=(20, 12))
-            plot_name = feature_names[f1] + " vs " + feature_names[f2]
-
-            for c in range(num_clusters):
-                #print('===========================')
-                #print('cluster', c, 'features', f1, f2)
-                #print('===========================')
-                #print(feature_names[f1], 'mean', np.mean(data_flat[cluster_ids == c, f1]), 'var', np.var(data_flat[cluster_ids == c, f1]))
-                #print(feature_names[f2], 'mean', np.mean(data_flat[cluster_ids == c, f2]), 'var', np.var(data_flat[cluster_ids == c, f2]))
-                #print()
-
-                ax = plt.subplot(2, ceil(num_clusters / 2.0), c + 1)
-                ax.scatter(data_flat[cluster_ids == c, f1], data_flat[cluster_ids == c, f2],
-                           alpha=0.1, marker='x', color=colors[c])
-
-                make_ellipses(estimator, ax, c, f1, f2)
-
-                #plt.legend()
-
-                plt.xlabel(feature_names[f1])
-                plt.ylabel((feature_names[f2]))
-                plt.title(plot_name)
-
-            if save:
-                plt.savefig(base_path + plot_name + '.png')
-                plt.close()
-            else:
-                plt.show()

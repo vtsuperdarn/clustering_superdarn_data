@@ -26,7 +26,7 @@ class GMM(Algorithm):
         t0 = time.time()
         estimator.fit(data)
         runtime = time.time() - t0
-        clust_flg = estimator.predict(data) - 1
+        clust_flg = estimator.predict(data)
         return self._1D_to_scanxscan(clust_flg), runtime
 
 
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     start_time = datetime.datetime(2018, 2, 7)
     end_time = datetime.datetime(2018, 2, 8)
 
-    gmm = GMM(start_time, end_time, 'cvw', loadPickle=True, n_clusters=15)
-    gmm.pickle()
+    gmm = GMM(start_time, end_time, 'cvw', n_clusters=15, loadPickle=True)
+    #gmm.pickle()
     print(gmm.__dict__.keys())
     gmm.plot_rti(8, 'Ribiero')

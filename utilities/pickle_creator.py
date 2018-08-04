@@ -5,7 +5,6 @@ import datetime as dt
 from superdarn_cluster.time_utils import *
 
 #TODO this should live in dbtools eventually, make it a function
-# TODO this is not properly scanifying time
 
 def get_datestr(year, month, day):
     return '%d-%02d-%02d' % (year, month, day)
