@@ -1,8 +1,11 @@
 import pickle
 from utilities.data_utils import get_data_dict_path
-from utilities.plot_utils import RangeTimePlot
+from utilities.plot_utils import RangeTimePlot, FanPlot
 from utilities.classification_utils import *
 import os
+from matplotlib.dates import date2num
+import copy
+
 
 class Algorithm(object):
     """
@@ -76,8 +79,30 @@ class Algorithm(object):
 
 
     def plot_fanplot(self, start_time, end_time):
-        # TODO
-        return
+        # Find the corresponding scans
+        s, e = date2num(start_time), date2num(end_time)
+        scan_start = None
+        scan_end = None
+        for i, t in enumerate(self.data_dict['time']):
+            if (np.sum(s <= t) > 0) and not scan_start:     # reached start point
+                scan_start = i
+            if (np.sum(e <= t) > 0) and scan_start:         # reached end point
+                scan_end = i
+                break
+        if (scan_start == None) or (scan_end == None):
+            raise Exception('%s thru %s is not contained in data' % (start_time, end_time))
+        # Create the fanplots
+        date_str = self.start_time.strftime('%m-%d-%Y')
+        alg = type(self).__name__
+        fan_name = ('%s %s\t\t%d clusters\t\t%s\t\t'
+                      % (self.rad.upper(), date_str,
+                         len(np.unique(np.hstack(self.clust_flg))),
+                         alg)
+                      ).expandtabs()
+        fanplot = FanPlot(self.data_dict['nrang'], self.data_dict['nbeam'])
+        fanplot.plot_clusters(self.data_dict, self.clust_flg,
+                              range(scan_start, scan_end+1),
+                              name=fan_name)
 
     # Private functions
 
@@ -147,6 +172,32 @@ class Algorithm(object):
             return new_obj.__dict__    # Instance vars of the pickled object
         except FileNotFoundError:
             raise Exception('No pickle file found for this time/radar/params/algorithm')
+
+
+    def _randomize_flags(self, flags):
+        """
+        Randomize flags so that plot colors are randomized
+        DBSCAN can create >1000 clusters, and physically clusters are usually similar in cluster number,
+        so they will be plotted in a similar shade which may not be distinguishable from their neighbors.
+        Randomizing the cluster numbers will reduce (but not eliminate) this problem.
+
+        :param flags: 1D array of flags
+        :return: 1D array of randomly re-assigned flags (cluster shapes are the same, flag #s have been changed)
+        """
+        # Randomize flags so that plot colors are randomized
+        unique_flgs = np.unique(flags)
+        clust_range = list(range(int(min(unique_flgs)), int(max(unique_flgs)) + 1))
+        flg_randomizer = copy.deepcopy(clust_range)
+        np.random.seed(0)   # Subsequent runs will produce the same flags
+        np.random.shuffle(flg_randomizer)
+        random_flags = np.zeros(len(flags))
+        for f in unique_flgs:
+            cluster_mask = f == flags
+            if f == -1:
+                random_flags[cluster_mask] = -1
+            else:
+                random_flags[cluster_mask] = flg_randomizer[f]
+        return random_flags
 
 
 from sklearn.mixture import GaussianMixture

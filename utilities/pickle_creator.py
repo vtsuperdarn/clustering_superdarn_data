@@ -4,7 +4,7 @@ from utilities.data_utils import read_db, get_scan_nums
 import datetime as dt
 from utilities.time_utils import *
 
-#TODO this should live in dbtools eventually? idk... i wanna be able to run this script
+#TODO this should live in dbtools eventually? idk... i wanna be able to run this script by itself
 
 data_dir = '../data'
 

@@ -1,6 +1,5 @@
 import numpy as np
 from sklearn.cluster import DBSCAN
-from utilities.time_utils import time_days_to_index
 from algorithms.Algorithm import GMMAlgorithm
 import time
 
@@ -8,16 +7,15 @@ class DBSCAN_GMM(GMMAlgorithm):
     """
     Run DBSCAN on space/time features, then GMM on space/time/vel/wid
     """
-
     def __init__(self, start_time, end_time, rad,
-                 beam_eps=4, gate_eps=2, time_eps=20,  # DBSCAN
-                 minPts=5, eps=1,  # DBSCAN
-                 n_clusters=3, cov='full',  # GMM
-                 features=['beam', 'gate', 'time', 'vel', 'wid'],  # GMM
-                 BoxCox=False,
+                 beam_eps=3, gate_eps=1, scan_eps=1,                # DBSCAN
+                 minPts=5, eps=1,                                   # DBSCAN
+                 n_clusters=3, cov='full',                          # GMM
+                 features=['beam', 'gate', 'time', 'vel', 'wid'],   # GMM
+                 BoxCox=False,                                      # GMM
                  useSavedResult=False):
         super().__init__(start_time, end_time, rad,
-                         {'time_eps' : time_eps,
+                         {'scan_eps' : scan_eps,
                           'beam_eps': beam_eps,
                           'gate_eps': gate_eps,
                           'eps': eps,
@@ -27,12 +25,13 @@ class DBSCAN_GMM(GMMAlgorithm):
                           'features': features,
                           'BoxCox': BoxCox},
                          useSavedResult=useSavedResult)
-
         if not useSavedResult:
             clust_flg, self.runtime = self._dbscan_gmm()
-            self.clust_flg = self._1D_to_scanxscan(clust_flg)
-            print('DBSCAN+GMM clusters: ' +
-                str(len(np.unique(np.hstack(self.clust_flg)))))
+            # Randomize flag #'s so that colors on plots are not close to each other
+            # (necessary for large # of clusters, but not for small #s)
+            rand_clust_flg = self._randomize_flags(clust_flg)
+            self.clust_flg = self._1D_to_scanxscan(rand_clust_flg)
+            print('DBSCAN+GMM clusters: ' + str(np.max(clust_flg)))
 
 
     def _dbscan_gmm(self):
@@ -43,14 +42,12 @@ class DBSCAN_GMM(GMMAlgorithm):
                     min_samples=self.params['min_pts']
                     ).fit(X)
         runtime = time.time() - t0
+        # Print # of clusters created by DBSCAN
         clust_flg = db.labels_
         db_labels_unique = np.unique(clust_flg)
         print('DBSCAN clusters: '+str(np.max(db_labels_unique)))
-
-        # TODO add k-means to GMMAlgorithm class
-        # so user can have option to run that instead
+        # Run GMM
         gmm_data = self._get_gmm_data_array()
-
         for dbc in db_labels_unique:
             db_cluster_mask = (clust_flg == dbc)
             num_pts = np.sum(db_cluster_mask)
@@ -59,7 +56,7 @@ class DBSCAN_GMM(GMMAlgorithm):
             # I don't want to keep these clusters, so label them as noise
             if num_pts < self.params['min_pts']:
                 clust_flg[db_cluster_mask] = -1
-            if num_pts < 500 or dbc == -1: # skip noise or small clusters
+            if num_pts < 500 or dbc == -1: # skip noise and small clusters
                 continue
             data = gmm_data[db_cluster_mask]
             gmm_labels, gmm_runtime = self._gmm(data)
@@ -68,14 +65,19 @@ class DBSCAN_GMM(GMMAlgorithm):
             clust_flg[db_cluster_mask] = gmm_labels
         return clust_flg, runtime
 
+
     def _get_dbscan_data_array(self):
         beam = np.hstack(self.data_dict['beam'])
         gate = np.hstack(self.data_dict['gate'])
-        time = np.hstack(self.data_dict['time'])
-        time_integ = time_days_to_index(time)
+        # Get the scan # for each data point
+        scan_num = []
+        for i, scan in enumerate(self.data_dict['time']):
+            scan_num.extend([i]*len(scan))
+        scan_num = np.array(scan_num)
+        # Divide each feature by its 'epsilon' to create the illusion of DBSCAN having multiple epsilons
         data = np.column_stack((beam / self.params['beam_eps'],
-                             gate / self.params['gate_eps'],
-                             time_integ / self.params['time_eps']))
+                                gate / self.params['gate_eps'],
+                                scan_num / self.params['scan_eps']))
         return data
 
 
@@ -83,7 +85,9 @@ if __name__ == '__main__':
     import datetime
     start_time = datetime.datetime(2018, 2, 7)
     end_time = datetime.datetime(2018, 2, 8)
-    dbgmm = DBSCAN_GMM(start_time, end_time, 'sas', useSavedResult=False)
-    dbgmm.save_result()
-    print(dbgmm.__dict__.keys())
-    dbgmm.plot_rti(8, 'Blanchard code')
+    dbgmm = DBSCAN_GMM(start_time, end_time, 'cvw', useSavedResult=True)
+    #dbgmm.save_result()
+    #dbgmm.plot_rti(8, 'Blanchard code')
+    start_time = datetime.datetime(2018, 2, 7, 0, 0, 0)
+    end_time = datetime.datetime(2018, 2, 7, 0, 5, 0)
+    dbgmm.plot_fanplot(start_time, end_time)

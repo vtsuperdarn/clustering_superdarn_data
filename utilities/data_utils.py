@@ -34,7 +34,6 @@ def read_db(db_path, rad, start_time, end_time, beam='*'):
         return False
 
     data_dict = dict()
-
     #We'll use the following parameters (or features) to do the clustering or predictions
     data_dict['datetime'] = [x[18] for x in rws]                #datetime
     data_dict['beam'] = [x[0] for x in rws]                     #beam number  (dimentionless)

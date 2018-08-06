@@ -2,14 +2,15 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.dates as mdates
-from matplotlib.dates import DateFormatter
+from matplotlib.dates import DateFormatter, num2date
+from matplotlib import patches
 
+cluster_cmap = plt.cm.gist_rainbow      # Default colormap for plotting clusters on RTI and fan plots
 
 class RangeTimePlot(object):
     """
     Create plots for IS/GS flags, velocity, and algorithm clusters.
     """
-
     def __init__(self, nrang, unique_times, num_subplots=3):
         self.nrang = nrang
         self.unique_gates = np.linspace(1, nrang, nrang)
@@ -27,35 +28,17 @@ class RangeTimePlot(object):
         gate = np.hstack(data_dict['gate'])
         allbeam = np.hstack(data_dict['beam'])
         flags = np.hstack(clust_flg)
-        # TODO need to randomize colors or something to plot large # of clusters well
-        # and preferably be able to show noise... altho that will be on ISGS plot
-        # Randomize flags so that colors are randomized
-        # (DBSCAN clusters next to each other will be plotted in different colors)
-        import copy
-        unique_flgs = np.unique(flags)
-        clust_range = list(range(int(min(unique_flgs)), int(max(unique_flgs)) + 1))
-        flg_randomizer = copy.deepcopy(clust_range)
-        np.random.seed(0)
-        np.random.shuffle(flg_randomizer)
-        random_flags = np.zeros(len(flags))
-        for f in unique_flgs:
-            cluster_mask = f == flags
-            if f == -1:
-                random_flags[cluster_mask] = -1
-            else:
-                random_flags[cluster_mask] = flg_randomizer[f]
-
         mask = allbeam == beam
         if show_closerange:
             mask = mask & (gate > 10)
         if -1 in flags:
-            cmap = plt.cm.nipy_spectral
+            cmap = plt.cm.nipy_spectral     # black and grey at edges
         else:
-            cmap = plt.cm.gist_rainbow      # no black or white
+            cmap = cluster_cmap             # no black or grey
 
         # Lower bound for cmap is inclusive, upper bound is non-inclusive
-        bounds = list(range(np.min(flags), np.max(flags)+2))    # need (max_cluster+1) to be the upper bound
-        self._create_colormesh(self.cluster_ax, time, gate, random_flags, mask, bounds, cmap)
+        bounds = list(range(int(np.min(flags)), int(np.max(flags))+2))    # need (max_cluster+1) to be the upper bound
+        self._create_colormesh(self.cluster_ax, time, gate, flags, mask, bounds, cmap)
         self.cluster_ax.set_title(title)
 
 
@@ -74,11 +57,11 @@ class RangeTimePlot(object):
             cmap = mpl.colors.ListedColormap([(0.0, 0.0, 0.0, 1.0),     # black
                                               (1.0, 0.0, 0.0, 1.0),     # blue
                                               (0.0, 0.0, 1.0, 1.0)])    # red
-            bounds = [-1, 0, 1, 2] # Lower bound inclusive, upper bound non-inclusive
+            bounds = [-1, 0, 1, 2]      # Lower bound inclusive, upper bound non-inclusive
         else:
             cmap = mpl.colors.ListedColormap([(1.0, 0.0, 0.0, 1.0),  # blue
                                               (0.0, 0.0, 1.0, 1.0)])  # red
-            bounds = [0, 1, 2]  # Lower bound inclusive, upper bound non-inclusive
+            bounds = [0, 1, 2]          # Lower bound inclusive, upper bound non-inclusive
         self._create_colormesh(self.isgs_ax, time, gate, flags, mask, bounds, cmap)
         self.isgs_ax.set_title(title)
 
@@ -148,6 +131,138 @@ class RangeTimePlot(object):
         ax.set_ylabel('Range gate')
         ax.pcolormesh(mesh_x, mesh_y, masked_colormesh, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
 
+
+
+class FanPlot:
+
+    # TODO have this take an axis instead of a figure?
+
+    def __init__(self, nrange=75, nbeam=16, r0=180, dr=45, dtheta=3.24, theta0=None):
+        """
+        Initialize the fanplot do a certain size.
+        :param nrange: number of range gates
+        :param nbeam: number of beams
+        :param r0: initial beam distance - any distance unit as long as it's consistent with dr
+        :param dr: length of each radar - any distance unit as long as it's consistent with r0
+        :param dtheta: degrees per beam gate, degrees (default 3.24 degrees)
+        """
+        # Set member variables
+        self.nrange = int(nrange)
+        self.nbeam = int(nbeam)
+        self.r0 = r0
+        self.dr = dr
+        self.dtheta = dtheta
+        # Initial angle (from X, polar coordinates) for beam 0
+        if theta0 == None:
+            self.theta0 = (90 - dtheta * nbeam / 2)     # By default, point fanplot towards 90 deg
+        else:
+            self.theta0 = theta0
+        self._open_figure()
+
+
+    def plot_clusters(self, data_dict, clust_flg, scans, name):
+        """
+        Create cluster plots for 1 or more scans
+        :param data_dict: dictionary with scan x scan lists - needs 'beam', 'gate', and 'time
+        :param clust_flg: scan x scan list, cluster flags for the data_dict
+        :param scans: a list or range of scans to use
+        :param name: the title of the plot (scan time will be added under this)
+        """
+        unique_clusters = np.unique(np.hstack(clust_flg))
+        cluster_colors = list(cluster_cmap(
+                                np.linspace(0, 1, np.max(unique_clusters) + 1)
+                               ))
+        for i in scans:
+            clust_i = np.unique(clust_flg[i]).astype(int)
+            # Cluster fanplot
+            for ci, c in enumerate(clust_i):
+                clust_mask = clust_flg[i] == c
+                beam_c = data_dict['beam'][i][clust_mask]
+                gate_c = data_dict['gate'][i][clust_mask]
+                if c == -1:
+                    color = (0, 0, 0, 1)
+                else:
+                    color = cluster_colors[c]
+                    m = int(len(beam_c) / 2)  # Beam is sorted, so this is roughly the index of the median beam
+                    self.text(str(c), beam_c[m], gate_c[m])  # Label cluster #
+                self.plot(beam_c, gate_c, color)
+            scan_time = num2date(data_dict['time'][i][0]).strftime('%H:%M:%S')
+            plt.title('%sscan time %s' % (name, scan_time))
+            plt.show()
+            if i != scans[-1]:
+                self._open_figure() # Open figure for next iteration
+
+
+    def plot(self, beams, gates, color="blue"):
+        """
+        Add some data to the plot in a single color at positions given by 'beams' and 'gates'.
+        :param beams: a list/array of beams
+        :param gates: a list/array of gates - same length as beams
+        :param color: a Matplotlib color
+        """
+        for i, (beam, gate) in enumerate(zip(beams, gates)):
+            theta = (self.theta0 + beam * self.dtheta) * np.pi / 180        # radians
+            r = (self.r0 + gate * self.dr)                                  # km
+            width = self.dtheta * np.pi / 180                               # radians
+            height = self.dr                                                # km
+
+            x1, x2 = theta, theta + width
+            y1, y2 = r, r + height
+            x = x1, x2, x2, x1
+            y = y1, y1, y2, y2
+            self.ax.fill(x, y, color=color)
+        self._scale_plot()
+
+
+    def add_colorbar(self, bounds, colormap, label=''):
+        import matplotlib as mpl
+        self.cax = self.fig.add_axes([0.9, 0.25, 0.025, 0.5])   # this list defines (left, bottom, width, height)
+        norm = mpl.colors.BoundaryNorm(bounds, colormap.N)
+        cb2 = mpl.colorbar.ColorbarBase(self.cax, cmap=colormap,
+                                        norm=norm,
+                                        ticks=bounds,
+                                        spacing='uniform',
+                                        orientation='vertical')
+        cb2.set_label(label)
+
+
+    def text(self, text, beam, gate, fontsize=8):
+        theta = (self.theta0 + beam * self.dtheta + 0.8 * self.dtheta) * np.pi / 180
+        r = (self.r0 + gate * self.dr)
+        plt.text(theta, r, text, fontsize=fontsize)
+
+
+    def show(self):
+        plt.show()
+
+
+    def _open_figure(self):
+        # Create axis
+        self.fig = plt.figure(figsize=(12, 9))
+        self.ax = self.fig.add_subplot(111, polar=True)
+
+        # Set up ticks and labels
+        self.r_ticks = range(self.r0, self.r0 + (self.nrange+1) * self.dr, self.dr)
+        self.theta_ticks = [self.theta0 + self.dtheta * b for b in range(self.nbeam+1)]
+        rlabels = [""] * len(self.r_ticks)
+        for i in range(0, len(rlabels), 5):
+            rlabels[i] = i
+        plt.rgrids(self.r_ticks, rlabels)
+        plt.thetagrids(self.theta_ticks, range(self.nbeam))
+
+
+    def _scale_plot(self):
+        # Scale min-max
+        self.ax.set_thetamin(self.theta_ticks[0])
+        self.ax.set_thetamax(self.theta_ticks[-1])
+        self.ax.set_rmin(0)
+        self.ax.set_rmax(self.r_ticks[-1])
+
+
+    def _monotonically_increasing(self, vec):
+        if len(vec) < 2:
+            return True
+        return all(x <= y for x, y in zip(vec[:-1], vec[1:]))
 
 
 def plot_stats_table(ax, stats_data_dict):
