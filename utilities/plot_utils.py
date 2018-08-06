@@ -86,6 +86,14 @@ class RangeTimePlot(object):
         plt.show()
 
 
+    def save(self, filepath):
+        plt.savefig(filepath)
+
+
+    def close(self):
+        self.fig.clf()
+        plt.close()
+
     # Private helper functions
 
     def _add_axis(self):
@@ -160,14 +168,7 @@ class FanPlot:
         self._open_figure()
 
 
-    def plot_clusters(self, data_dict, clust_flg, scans, name):
-        """
-        Create cluster plots for 1 or more scans
-        :param data_dict: dictionary with scan x scan lists - needs 'beam', 'gate', and 'time
-        :param clust_flg: scan x scan list, cluster flags for the data_dict
-        :param scans: a list or range of scans to use
-        :param name: the title of the plot (scan time will be added under this)
-        """
+    def plot_clusters(self, data_dict, clust_flg, scans, name, show=True, save=False, base_filepath=''):
         unique_clusters = np.unique(np.hstack(clust_flg))
         cluster_colors = list(cluster_cmap(
                                 np.linspace(0, 1, np.max(unique_clusters) + 1)
@@ -188,7 +189,13 @@ class FanPlot:
                 self.plot(beam_c, gate_c, color)
             scan_time = num2date(data_dict['time'][i][0]).strftime('%H:%M:%S')
             plt.title('%sscan time %s' % (name, scan_time))
-            plt.show()
+            if save:
+                filepath = '%s_%s.jpg' % (base_filepath, scan_time)
+                plt.savefig(filepath)
+            if show:
+                plt.show(block=False)
+            self.fig.clf()
+            plt.close()
             if i != scans[-1]:
                 self._open_figure() # Open figure for next iteration
 
@@ -234,6 +241,12 @@ class FanPlot:
 
     def show(self):
         plt.show()
+
+
+    def save(self, filepath):
+        plt.savefig(filepath)
+        self.fig.clf()
+        plt.close()
 
 
     def _open_figure(self):
@@ -352,10 +365,9 @@ def _make_ellipses(model, ax, n_cluster, f1, f2):
         covariances = model.covariances_[n_cluster][[f1, f2], :][:, [f1, f2]]
     elif model.covariance_type == 'tied':
         covariances = model.covariances_[[f1, f2], :][:, [f1, f2]]
-    # TODO this may or may not work
+    # TODO 'diag' and 'spherical' may or may not work, haven't used them yet
     elif model.covariance_type == 'diag':
         covariances = np.diag(model.covariances_[n_cluster][[f1, f2]])
-    # TODO will this work...? do we need it?
     elif model.covariance_type == 'spherical':
         covariances = []  # np.eye(model.means_.shape[1]) * model.covariances_[n_cluster]
 

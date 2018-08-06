@@ -4,6 +4,7 @@ from utilities.plot_utils import RangeTimePlot, FanPlot
 from utilities.classification_utils import *
 import os
 from matplotlib.dates import date2num
+import datetime
 import copy
 
 
@@ -13,6 +14,7 @@ class Algorithm(object):
     Contains data processing and plotting functions.
     """
     this_dir = os.path.abspath(os.path.dirname(__file__))
+    base_path_dir = this_dir + '/../plots'
 
     # Public functions
 
@@ -42,17 +44,7 @@ class Algorithm(object):
         pickle.dump(self, picklefile)
 
 
-    def plot_rti(self, beam, threshold, save=False):
-        """
-        Plot algorithm results on an RTI plot.
-        Will plot color-coded clusters, IS/GS flags, and velocity heatmap.
-
-        :param beam: an integer, or '*' to plot all beams
-        :param threshold: which threshold to use.
-                          'Ribiero', 'Blanchard code', or 'Blanchard paper'
-        :param save: if False, show plot; if True, save plot to file
-        :return:
-        """
+    def plot_rti(self, beam, threshold, show=True, save=False):
         unique_times = np.unique(np.hstack(self.data_dict['time']))
         nrang = self.data_dict['nrang']
         gs_flg = np.hstack(self._classify(threshold))
@@ -75,10 +67,18 @@ class Algorithm(object):
         rtp.addClusterPlot(self.data_dict, self.clust_flg, beam, clust_name)
         rtp.addGSISPlot(self.data_dict, gs_flg, beam, isgs_name)
         rtp.addVelPlot(self.data_dict, beam, vel_name, vel_max=100, vel_step=10)
-        rtp.show()
+        if save:
+            plot_date = self.start_time.strftime('%Y%m%d')
+            filename = '%s_%s_%s_%s.jpg' % (self.rad, plot_date, beam,
+                                            threshold.replace(' ', '').lower())
+            filepath = self._get_plot_path(alg, 'rti') + '/' + filename
+            rtp.save(filepath)
+        if show:
+            rtp.show()
+        rtp.close()
 
 
-    def plot_fanplot(self, start_time, end_time):
+    def plot_fanplots(self, start_time, end_time, show=True, save=False):
         # Find the corresponding scans
         s, e = date2num(start_time), date2num(end_time)
         scan_start = None
@@ -92,8 +92,17 @@ class Algorithm(object):
         if (scan_start == None) or (scan_end == None):
             raise Exception('%s thru %s is not contained in data' % (start_time, end_time))
         # Create the fanplots
+
         date_str = self.start_time.strftime('%m-%d-%Y')
         alg = type(self).__name__
+
+        if save:       # Only create the directory path if savePlot is true
+            plot_date = self.start_time.strftime('%Y%m%d')
+            filename = '%s_%s' % (self.rad, plot_date)      # Scan time and .jpg will be added to this by plot_clusters
+            base_filepath = self._get_plot_path(alg, 'fanplot') + '/' + filename
+        else:
+            base_filepath = None
+
         fan_name = ('%s %s\t\t%d clusters\t\t%s\t\t'
                       % (self.rad.upper(), date_str,
                          len(np.unique(np.hstack(self.clust_flg))),
@@ -102,9 +111,20 @@ class Algorithm(object):
         fanplot = FanPlot(self.data_dict['nrang'], self.data_dict['nbeam'])
         fanplot.plot_clusters(self.data_dict, self.clust_flg,
                               range(scan_start, scan_end+1),
-                              name=fan_name)
+                              name=fan_name, show=show, save=save,
+                              base_filepath=base_filepath)
+
 
     # Private functions
+
+    def _get_plot_path(self, alg, plot_type):
+        today = datetime.datetime.now().strftime('%m-%d-%Y')
+        dir = '%s/%s %s/%s' \
+                  % (self.base_path_dir, today, alg, plot_type)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        return dir
+
 
     def _classify(self, threshold):
         """
