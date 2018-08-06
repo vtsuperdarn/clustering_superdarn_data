@@ -78,7 +78,7 @@ class RangeTimePlot(object):
         cmap = plt.cm.jet
         mask = allbeam == beam
         self._create_colormesh(self.vel_ax, time, gate, flags, mask, bounds, cmap)
-        self._add_colorbar(self.vel_ax, bounds, cmap, label='Velocity')
+        self._add_colorbar(self.fig, self.vel_ax, bounds, cmap, label='Velocity')
         self.vel_ax.set_title(title)
 
 
@@ -101,15 +101,23 @@ class RangeTimePlot(object):
         ax = self.fig.add_subplot(self.num_subplots, 1, self._num_subplots_created)
         return ax
 
-
-    def _add_colorbar(self, ax, bounds, cmap, label=''):
-        # position the colorbar to the right of the axis
+    def _add_colorbar(self, fig, ax, bounds, colormap, label=''):
+        """
+        Add a colorbar to the right of an axis.
+        :param fig:
+        :param ax:
+        :param bounds:
+        :param colormap:
+        :param label:
+        :return:
+        """
+        import matplotlib as mpl
         pos = ax.get_position()
-        cpos = [pos.x0 + 0.8, pos.y0 + 0.0125, 0.015, pos.height * 0.9]
-        # create axis for colorbar
-        cax = self.fig.add_axes(cpos)
-        norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-        cb2 = mpl.colorbar.ColorbarBase(cax, cmap=cmap,
+        cpos = [pos.x1 + 0.025, pos.y0 + 0.0125,
+                0.015, pos.height * 0.9]                # this list defines (left, bottom, width, height
+        cax = fig.add_axes(cpos)
+        norm = mpl.colors.BoundaryNorm(bounds, colormap.N)
+        cb2 = mpl.colorbar.ColorbarBase(cax, cmap=colormap,
                                         norm=norm,
                                         ticks=bounds,
                                         spacing='uniform',
@@ -143,7 +151,6 @@ class RangeTimePlot(object):
 
 class FanPlot:
 
-    # TODO have this take an axis instead of a figure?
 
     def __init__(self, nrange=75, nbeam=16, r0=180, dr=45, dtheta=3.24, theta0=None):
         """
@@ -165,15 +172,24 @@ class FanPlot:
             self.theta0 = (90 - dtheta * nbeam / 2)     # By default, point fanplot towards 90 deg
         else:
             self.theta0 = theta0
-        self._open_figure()
 
 
-    def plot_clusters(self, data_dict, clust_flg, scans, name, show=True, save=False, base_filepath=''):
+    def plot_clusters(self, data_dict, clust_flg, scans, name,
+                      vel_max=200, vel_step=25,
+                      show=True, save=False, base_filepath=''):
         unique_clusters = np.unique(np.hstack(clust_flg))
         cluster_colors = list(cluster_cmap(
                                 np.linspace(0, 1, np.max(unique_clusters) + 1)
                                ))
+        vel_ranges = list(range(-vel_max, vel_max + 1, vel_step))
+        vel_ranges.insert(0, -9999)
+        vel_ranges.append(9999)
+        vel_cmap = plt.cm.jet       # use 'viridis' colormap to make this redgreen colorblind proof
+        vel_colors = vel_cmap(np.linspace(0, 1, len(vel_ranges)))
+
         for i in scans:
+            fig = plt.figure(figsize=(16, 9))
+            clust_ax = self.add_axis(fig, 121)
             clust_i = np.unique(clust_flg[i]).astype(int)
             # Cluster fanplot
             for ci, c in enumerate(clust_i):
@@ -186,21 +202,42 @@ class FanPlot:
                     color = cluster_colors[c]
                     m = int(len(beam_c) / 2)  # Beam is sorted, so this is roughly the index of the median beam
                     self.text(str(c), beam_c[m], gate_c[m])  # Label cluster #
-                self.plot(beam_c, gate_c, color)
+                self.plot(clust_ax, beam_c, gate_c, color)
+            # Velocity fanplot
+            vel_ax = self.add_axis(fig, 122)
+            for s in range(len(vel_ranges) - 1):
+                step_mask = (data_dict['vel'][i] >= vel_ranges[s]) & (data_dict['vel'][i] <= (vel_ranges[s + 1]))
+                beam_s = data_dict['beam'][i][step_mask]
+                gate_s = data_dict['gate'][i][step_mask]
+                self.plot(vel_ax, beam_s, gate_s, vel_colors[s])
+            self._add_colorbar(fig, vel_ax, vel_ranges, vel_cmap)
+            # Add title
             scan_time = num2date(data_dict['time'][i][0]).strftime('%H:%M:%S')
-            plt.title('%sscan time %s' % (name, scan_time))
+            plt.suptitle('%sscan time %s' % (name, scan_time))
             if save:
                 filepath = '%s_%s.jpg' % (base_filepath, scan_time)
                 plt.savefig(filepath)
             if show:
-                plt.show(block=False)
-            self.fig.clf()
+                plt.show()
+            fig.clf()
             plt.close()
-            if i != scans[-1]:
-                self._open_figure() # Open figure for next iteration
 
 
-    def plot(self, beams, gates, color="blue"):
+    def add_axis(self, fig, subplot):
+        ax = fig.add_subplot(subplot, polar=True)
+
+        # Set up ticks and labels
+        self.r_ticks = range(self.r0, self.r0 + (self.nrange+1) * self.dr, self.dr)
+        self.theta_ticks = [self.theta0 + self.dtheta * b for b in range(self.nbeam+1)]
+        rlabels = [""] * len(self.r_ticks)
+        for i in range(0, len(rlabels), 5):
+            rlabels[i] = i
+        plt.rgrids(self.r_ticks, rlabels)
+        plt.thetagrids(self.theta_ticks, range(self.nbeam))
+        return ax
+
+
+    def plot(self, ax, beams, gates, color="blue"):
         """
         Add some data to the plot in a single color at positions given by 'beams' and 'gates'.
         :param beams: a list/array of beams
@@ -217,20 +254,37 @@ class FanPlot:
             y1, y2 = r, r + height
             x = x1, x2, x2, x1
             y = y1, y1, y2, y2
-            self.ax.fill(x, y, color=color)
-        self._scale_plot()
+            ax.fill(x, y, color=color)
+        self._scale_plot(ax)
 
 
-    def add_colorbar(self, bounds, colormap, label=''):
+    def _add_colorbar(self, fig, ax, bounds, colormap, label=''):
+        """
+        Add a colorbar to the right of an axis.
+        Similar to the function in RangeTimePlot, but positioned differently fanplots.
+        :param fig:
+        :param ax:
+        :param bounds:
+        :param colormap:
+        :param label:
+        :return:
+        """
         import matplotlib as mpl
-        self.cax = self.fig.add_axes([0.9, 0.25, 0.025, 0.5])   # this list defines (left, bottom, width, height)
+        pos = ax.get_position()
+        cpos = [pos.x1 + 0.025, pos.y0 + 0.25*pos.height,
+                0.01, pos.height * 0.5]            # this list defines (left, bottom, width, height
+        cax = fig.add_axes(cpos)
         norm = mpl.colors.BoundaryNorm(bounds, colormap.N)
-        cb2 = mpl.colorbar.ColorbarBase(self.cax, cmap=colormap,
+        cb2 = mpl.colorbar.ColorbarBase(cax, cmap=colormap,
                                         norm=norm,
                                         ticks=bounds,
                                         spacing='uniform',
                                         orientation='vertical')
         cb2.set_label(label)
+        # Remove the outer bounds in tick labels
+        ticks = [str(i) for i in bounds]
+        ticks[0], ticks[-1] = '', ''
+        cb2.ax.set_yticklabels(ticks)
 
 
     def text(self, text, beam, gate, fontsize=8):
@@ -245,31 +299,15 @@ class FanPlot:
 
     def save(self, filepath):
         plt.savefig(filepath)
-        self.fig.clf()
         plt.close()
 
 
-    def _open_figure(self):
-        # Create axis
-        self.fig = plt.figure(figsize=(12, 9))
-        self.ax = self.fig.add_subplot(111, polar=True)
-
-        # Set up ticks and labels
-        self.r_ticks = range(self.r0, self.r0 + (self.nrange+1) * self.dr, self.dr)
-        self.theta_ticks = [self.theta0 + self.dtheta * b for b in range(self.nbeam+1)]
-        rlabels = [""] * len(self.r_ticks)
-        for i in range(0, len(rlabels), 5):
-            rlabels[i] = i
-        plt.rgrids(self.r_ticks, rlabels)
-        plt.thetagrids(self.theta_ticks, range(self.nbeam))
-
-
-    def _scale_plot(self):
+    def _scale_plot(self, ax):
         # Scale min-max
-        self.ax.set_thetamin(self.theta_ticks[0])
-        self.ax.set_thetamax(self.theta_ticks[-1])
-        self.ax.set_rmin(0)
-        self.ax.set_rmax(self.r_ticks[-1])
+        ax.set_thetamin(self.theta_ticks[0])
+        ax.set_thetamax(self.theta_ticks[-1])
+        ax.set_rmin(0)
+        ax.set_rmax(self.r_ticks[-1])
 
 
     def _monotonically_increasing(self, vec):

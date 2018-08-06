@@ -44,7 +44,7 @@ class Algorithm(object):
         pickle.dump(self, picklefile)
 
 
-    def plot_rti(self, beam, threshold, show=True, save=False):
+    def plot_rti(self, beam, threshold, vel_max=200, vel_step=25, show=True, save=False):
         unique_times = np.unique(np.hstack(self.data_dict['time']))
         nrang = self.data_dict['nrang']
         gs_flg = np.hstack(self._classify(threshold))
@@ -66,7 +66,7 @@ class Algorithm(object):
         rtp = RangeTimePlot(nrang, unique_times)
         rtp.addClusterPlot(self.data_dict, self.clust_flg, beam, clust_name)
         rtp.addGSISPlot(self.data_dict, gs_flg, beam, isgs_name)
-        rtp.addVelPlot(self.data_dict, beam, vel_name, vel_max=100, vel_step=10)
+        rtp.addVelPlot(self.data_dict, beam, vel_name, vel_max=vel_max, vel_step=vel_step)
         if save:
             plot_date = self.start_time.strftime('%Y%m%d')
             filename = '%s_%s_%s_%s.jpg' % (self.rad, plot_date, beam,
@@ -78,7 +78,7 @@ class Algorithm(object):
         rtp.close()
 
 
-    def plot_fanplots(self, start_time, end_time, show=True, save=False):
+    def plot_fanplots(self, start_time, end_time, vel_max=200, vel_step=25, show=True, save=False):
         # Find the corresponding scans
         s, e = date2num(start_time), date2num(end_time)
         scan_start = None
@@ -111,6 +111,7 @@ class Algorithm(object):
         fanplot = FanPlot(self.data_dict['nrang'], self.data_dict['nbeam'])
         fanplot.plot_clusters(self.data_dict, self.clust_flg,
                               range(scan_start, scan_end+1),
+                              vel_max=vel_max, vel_step=vel_step,
                               name=fan_name, show=show, save=save,
                               base_filepath=base_filepath)
 
