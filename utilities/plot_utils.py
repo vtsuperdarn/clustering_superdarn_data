@@ -27,22 +27,35 @@ class RangeTimePlot(object):
         gate = np.hstack(data_dict['gate'])
         allbeam = np.hstack(data_dict['beam'])
         flags = np.hstack(clust_flg)
+        # TODO need to randomize colors or something to plot large # of clusters well
+        # and preferably be able to show noise... altho that will be on ISGS plot
+        # Randomize flags so that colors are randomized
+        # (DBSCAN clusters next to each other will be plotted in different colors)
+        import copy
+        unique_flgs = np.unique(flags)
+        clust_range = list(range(int(min(unique_flgs)), int(max(unique_flgs)) + 1))
+        flg_randomizer = copy.deepcopy(clust_range)
+        np.random.seed(0)
+        np.random.shuffle(flg_randomizer)
+        random_flags = np.zeros(len(flags))
+        for f in unique_flgs:
+            cluster_mask = f == flags
+            if f == -1:
+                random_flags[cluster_mask] = -1
+            else:
+                random_flags[cluster_mask] = flg_randomizer[f]
+
         mask = allbeam == beam
         if show_closerange:
             mask = mask & (gate > 10)
-        if -1 in flags:                     # contains noise flag
-            cmap = plt.cm.nipy_spectral     # includes white and black at edges
-            n_clusters = np.max(flags)
-            bounds = list(range(n_clusters+2))
-            bounds_noise_adjust = 10 + int(n_clusters / 10) # TODO what should this be?
-            bounds.append(bounds[-1] + bounds_noise_adjust)                 # white
-            bounds.insert((bounds[0] - bounds_noise_adjust), 0)             # black
-            flags[flags == -1] = (bounds[0] - bounds_noise_adjust)          # set noise black
+        if -1 in flags:
+            cmap = plt.cm.nipy_spectral
         else:
-            cmap = plt.cm.hsv                       # no black or white
-            n_clusters = np.max(flags)
-            bounds = list(range(n_clusters+1))       # add 1 in case labels start at 0
-        self._create_colormesh(self.cluster_ax, time, gate, flags, mask, bounds, cmap)
+            cmap = plt.cm.gist_rainbow      # no black or white
+
+        # Lower bound for cmap is inclusive, upper bound is non-inclusive
+        bounds = list(range(np.min(flags), np.max(flags)+2))    # need (max_cluster+1) to be the upper bound
+        self._create_colormesh(self.cluster_ax, time, gate, random_flags, mask, bounds, cmap)
         self.cluster_ax.set_title(title)
 
 
@@ -61,11 +74,11 @@ class RangeTimePlot(object):
             cmap = mpl.colors.ListedColormap([(0.0, 0.0, 0.0, 1.0),     # black
                                               (1.0, 0.0, 0.0, 1.0),     # blue
                                               (0.0, 0.0, 1.0, 1.0)])    # red
-            bounds = [-1, 0, 1, 2] # TODO may need some outlier bounds?
+            bounds = [-1, 0, 1, 2] # Lower bound inclusive, upper bound non-inclusive
         else:
-            cmap = mpl.colors.ListedColormap([(0.0, 0.0, 1.0, 1.0),  # blue
-                                       (1.0, 0.0, 0.0, 1.0)])  # red
-            bounds = [0, 1, 2]  # TODO may need some outlier bounds?
+            cmap = mpl.colors.ListedColormap([(1.0, 0.0, 0.0, 1.0),  # blue
+                                              (0.0, 0.0, 1.0, 1.0)])  # red
+            bounds = [0, 1, 2]  # Lower bound inclusive, upper bound non-inclusive
         self._create_colormesh(self.isgs_ax, time, gate, flags, mask, bounds, cmap)
         self.isgs_ax.set_title(title)
 

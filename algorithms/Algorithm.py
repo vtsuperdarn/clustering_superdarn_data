@@ -13,13 +13,13 @@ class Algorithm(object):
 
     # Public functions
 
-    def __init__(self, start_time, end_time, rad, params, loadPickle=False):
+    def __init__(self, start_time, end_time, rad, params, useSavedResult=False):
         self.start_time = start_time
         self.end_time = end_time
         self.rad = rad
         self.params = params
         self.pickle_dir = self.this_dir + '/pickles/' + type(self).__name__
-        if loadPickle:
+        if useSavedResult:
             # Set instance vars equal to the pickled object's instance vars
             self.__dict__ = self._read_pickle()
         else:
@@ -28,7 +28,7 @@ class Algorithm(object):
             self.data_dict = pickle.load(open(path, 'rb'))
 
 
-    def pickle(self):
+    def save_result(self):
         """
         Save a trained algorithm to ./pickles/<alg_name>/<parameter_hash>
         """
@@ -52,7 +52,7 @@ class Algorithm(object):
         """
         unique_times = np.unique(np.hstack(self.data_dict['time']))
         nrang = self.data_dict['nrang']
-        gs_flg = np.hstack(self.data_dict['trad_gsflg'])#np.hstack(self._classify(threshold))
+        gs_flg = np.hstack(self._classify(threshold))
         # Set up plot names
         date_str = self.start_time.strftime('%m-%d-%Y')
         alg = type(self).__name__
@@ -105,6 +105,8 @@ class Algorithm(object):
                     gs_flg[clust_mask] = blanchard_gs_flg(vel[clust_mask], wid[clust_mask], 'paper')
                 elif threshold == 'Ribiero':
                     gs_flg[clust_mask] = ribiero_gs_flg(vel[clust_mask], t[clust_mask])
+                else:
+                    raise Exception('Bad threshold %s' % str(threshold))
         # Convert 1D array to list of scans and return
         return self._1D_to_scanxscan(gs_flg)
 
@@ -146,6 +148,40 @@ class Algorithm(object):
         except FileNotFoundError:
             raise Exception('No pickle file found for this time/radar/params/algorithm')
 
+
+from sklearn.mixture import GaussianMixture
+from scipy.stats import boxcox
+import time
+
+class GMMAlgorithm(Algorithm):
+    """
+    Superclass holding shared functions for algorithms that use GMM at some point.
+    """
+    def __init__(self, start_time, end_time, rad, params, useSavedResult):
+        super().__init__(start_time, end_time, rad, params, useSavedResult=useSavedResult)
+
+
+    def _gmm(self, data):
+        n_clusters = self.params['n_clusters']
+        cov = self.params['cov']
+        estimator = GaussianMixture(n_components=n_clusters,
+                                    covariance_type=cov, max_iter=500,
+                                    random_state=0, n_init=5, init_params='kmeans')
+        t0 = time.time()
+        estimator.fit(data)
+        runtime = time.time() - t0
+        clust_flg = estimator.predict(data)
+        return clust_flg, runtime
+
+
+    def _get_gmm_data_array(self):
+        data = []
+        for feature in self.params['features']:
+            vals = self.data_dict[feature]
+            if self.params['BoxCox'] and (feature == 'vel' or feature == 'wid'):
+                vals = boxcox(vals)[0]
+            data.append(np.hstack(vals))
+        return np.column_stack(data)
 
 
 

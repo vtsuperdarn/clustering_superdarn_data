@@ -1,56 +1,33 @@
-from algorithms.Algorithm import Algorithm
+from algorithms.Algorithm import GMMAlgorithm
 import numpy as np
-import time
-from sklearn.mixture import GaussianMixture
 
-class GMM(Algorithm):
+class GMM(GMMAlgorithm):
     """
     GMM for SuperDARN data.
     """
-
-    def _get_data_array(self):
-        data = []
-        for feature in self.params['features']:
-            vals = self.data_dict[feature]
-            data.append(np.hstack(vals))
-        return np.column_stack(data)
-
-
-    def _gmm(self):
-        data = self._get_data_array()
-        n_clusters = self.params['n_clusters']
-        cov = self.params['cov']
-        estimator = GaussianMixture(n_components=n_clusters,
-                                    covariance_type=cov, max_iter=500,
-                                    random_state=0, n_init=5, init_params='kmeans')
-        t0 = time.time()
-        estimator.fit(data)
-        runtime = time.time() - t0
-        clust_flg = estimator.predict(data)
-        return self._1D_to_scanxscan(clust_flg), runtime
-
-
     def __init__(self, start_time, end_time, rad,
                  n_clusters=10, cov='full',
                  features=['beam', 'gate', 'time', 'vel', 'wid'],
-                 loadPickle=False):
+                 BoxCox=False,
+                 useSavedResult=False):
         super().__init__(start_time, end_time, rad,
                          {'n_clusters' : n_clusters,
                           'cov': cov,
-                          'features': features},
-                         loadPickle=loadPickle)
+                          'features': features,
+                          'BoxCox': BoxCox},
+                         useSavedResult=useSavedResult)
 
-        if not loadPickle:
-            self.clust_flg, self.runtime = self._gmm()
-            self.data_dict['clust_flg'] = self.clust_flg
+        if not useSavedResult:
+            clust_flg, self.runtime = self._gmm(self._get_gmm_data_array())
+            self.clust_flg = self._1D_to_scanxscan(clust_flg)
             print(np.unique(np.hstack(self.clust_flg)))
+
 
 if __name__ == "__main__":
     import datetime
     start_time = datetime.datetime(2018, 2, 7)
     end_time = datetime.datetime(2018, 2, 8)
-
-    gmm = GMM(start_time, end_time, 'cvw', n_clusters=15, loadPickle=True)
-    #gmm.pickle()
+    gmm = GMM(start_time, end_time, 'cvw', n_clusters=10, useSavedResult=True)
+    #gmm.save_result()
     print(gmm.__dict__.keys())
-    gmm.plot_rti(8, 'Ribiero')
+    gmm.plot_rti(8, 'Blanchard code')

@@ -1,10 +1,12 @@
 import pickle
 from matplotlib.dates import date2num
-from superdarn_cluster.dbtools import read_db, get_scan_nums
+from utilities.data_utils import read_db, get_scan_nums
 import datetime as dt
-from superdarn_cluster.time_utils import *
+from utilities.time_utils import *
 
-#TODO this should live in dbtools eventually, make it a function
+#TODO this should live in dbtools eventually? idk... i wanna be able to run this script
+
+data_dir = '../data'
 
 def get_datestr(year, month, day):
     return '%d-%02d-%02d' % (year, month, day)
@@ -14,7 +16,7 @@ def make_pickle(date):
     start_time = dt.datetime(year, month, day)
     end_time = dt.datetime(year, month, day+1)
     date_str = get_datestr(year, month, day)
-    db_path = "./Data/%s_GSoC_%s.db" % (rad, date_str)
+    db_path = "%s/%s_GSoC_%s.db" % (data_dir, rad, date_str)
     data_dict = read_db(db_path, rad, start_time, end_time)
 
     """ Extend features so that they are all the same length ('flatten') """
@@ -52,8 +54,6 @@ def make_pickle(date):
     trad_gs_flg_scans = []
     elv_scans = []
 
-    # Add traditional GS flag, nrang, nbeam, elevation, elv_e, hop?, region?, vheight? power, phi0?
-    # It's okay, you don't need to do it all at once - these shouldn't take long to generate
 
     for s in np.unique(scan_nums):
         scan_mask = scan_nums == s
@@ -69,14 +69,19 @@ def make_pickle(date):
     data = {'gate' : gate_scans, 'beam' : beam_scans, 'vel' : vel_scans, 'wid' : wid_scans,
             'time' : time_scans, 'trad_gsflg' : trad_gs_flg_scans, 'elv' : elv_scans,
             'nrang' : nrang, 'nbeam' : nbeam}
-    filename = "./pickles/%s_%s_scans.pickle" % (rad, date_str)
+    filename = "%s/%s_%s_scans.pickle" % (data_dir, rad, date_str)
     pickle.dump(data, open(filename, 'wb'))
 
 
 
 """ Get data """
-rad = 'cvw'
-dates = [(2017, 5, 30), (2017, 8, 20), (2017, 10, 16), (2017, 12, 19), (2018, 2, 7), (2018, 4, 5)]
+rad = 'sas'
+
+dates = [(2017, 1, 17), (2017, 3, 13), (2017, 4, 4), (2017, 5, 30), (2017, 8, 20),
+         (2017, 9, 20), (2017, 10, 16), (2017, 11, 14), (2017, 12, 8), (2017, 12, 17),
+         (2017, 12, 18), (2017, 12, 19), (2018, 1, 25), (2018, 2, 7), (2018, 2, 8),
+         (2018, 3, 8), (2018, 4, 5)]
+
 
 for date in dates:
     make_pickle(date)
