@@ -67,8 +67,8 @@ class DBSCAN_GMM(GMMAlgorithm):
 if __name__ == '__main__':
     import datetime
     start_time = datetime.datetime(2018, 2, 7)
-    end_time = datetime.datetime(2018, 2, 8)
-    dbgmm = DBSCAN_GMM(start_time, end_time, 'cvw', n_clusters=5, useSavedResult=False)
+    end_time = datetime.datetime(2018, 2, 7, 12)
+    dbgmm = DBSCAN_GMM(start_time, end_time, 'cvw', n_clusters=2, useSavedResult=False)
     dbgmm.save_result()
     dbgmm.plot_rti(8, 'Blanchard code', vel_max=100, vel_step=10)
     start_time = datetime.datetime(2018, 2, 7, 12, 0, 0)

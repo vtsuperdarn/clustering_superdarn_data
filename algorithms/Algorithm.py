@@ -30,7 +30,8 @@ class Algorithm(object):
         else:
             # Load data_dict from the data folder
             path = get_data_dict_path(start_time, rad)
-            self.data_dict = pickle.load(open(path, 'rb'))
+            data_dict = pickle.load(open(path, 'rb'))
+            self.data_dict = self._filter_by_time(start_time, end_time, data_dict)
 
 
     def save_result(self):
@@ -150,6 +151,27 @@ class Algorithm(object):
 
 
     # Private functions
+
+    def _filter_by_time(self, start_time, end_time, data_dict):
+        time = data_dict['time']
+        start_i, end_i = None, None
+        start_time, end_time = date2num(start_time), date2num(end_time)
+        if start_time < time[0][0]: # Sometimes start time is a few seconds before the first scan
+            start_time = time[0][0]
+        for i, t in enumerate(time):
+            if np.sum(start_time >= t) > 0 and start_i == None:
+                start_i = i
+            if np.sum(end_time >= t) > 0 and start_i != None:
+                end_i = i+1
+        data_dict['gate'] = data_dict['gate'][start_i:end_i]
+        data_dict['time'] = data_dict['time'][start_i:end_i]
+        data_dict['beam'] = data_dict['beam'][start_i:end_i]
+        data_dict['vel'] = data_dict['vel'][start_i:end_i]
+        data_dict['wid'] = data_dict['wid'][start_i:end_i]
+        data_dict['elv'] = data_dict['elv'][start_i:end_i]
+        data_dict['trad_gsflg'] = data_dict['trad_gsflg'][start_i:end_i]
+        return data_dict
+
 
     def _get_plot_path(self, alg, plot_type):
         today = datetime.datetime.now().strftime('%m-%d-%Y')
