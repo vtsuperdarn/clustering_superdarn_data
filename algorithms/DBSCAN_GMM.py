@@ -41,29 +41,12 @@ class DBSCAN_GMM(GMMAlgorithm):
         db = DBSCAN(eps=self.params['eps'],
                     min_samples=self.params['min_pts']
                     ).fit(X)
-        runtime = time.time() - t0
+        db_runtime = time.time() - t0
         # Print # of clusters created by DBSCAN
-        clust_flg = db.labels_
-        db_labels_unique = np.unique(clust_flg)
-        print('DBSCAN clusters: '+str(np.max(db_labels_unique)))
-        # Run GMM
+        db_flg = db.labels_
         gmm_data = self._get_gmm_data_array()
-        for dbc in db_labels_unique:
-            db_cluster_mask = (clust_flg == dbc)
-            num_pts = np.sum(db_cluster_mask)
-            # Sometimes DBSCAN will find tiny clusters due to this:
-            # https://stackoverflow.com/questions/21994584/can-the-dbscan-algorithm-create-a-cluster-with-less-than-minpts
-            # I don't want to keep these clusters, so label them as noise
-            if num_pts < self.params['min_pts']:
-                clust_flg[db_cluster_mask] = -1
-            if num_pts < 500 or dbc == -1: # skip noise and small clusters
-                continue
-            data = gmm_data[db_cluster_mask]
-            gmm_labels, gmm_runtime = self._gmm(data)
-            runtime += gmm_runtime
-            gmm_labels += np.max(clust_flg) + 1
-            clust_flg[db_cluster_mask] = gmm_labels
-        return clust_flg, runtime
+        clust_flg, gmm_runtime = self._gmm_on_existing_clusters(gmm_data, db_flg)
+        return clust_flg, db_runtime + gmm_runtime
 
 
     def _get_dbscan_data_array(self):

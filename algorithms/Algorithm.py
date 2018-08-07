@@ -44,6 +44,33 @@ class Algorithm(object):
         pickle.dump(self, picklefile)
 
 
+    def plot_rti_traditional(self, beam, vel_max=200, vel_step=25, show=True, save=False):
+        unique_times = np.unique(np.hstack(self.data_dict['time']))
+        nrang = self.data_dict['nrang']
+        gs_flg = np.hstack(self.data_dict['trad_gsflg'])
+        alg = type(self).__name__
+        # Set up plot names
+        date_str = self.start_time.strftime('%m-%d-%Y')
+        isgs_name = ('%s %s\t\t\t\tIS/GS\t\t\t\tTraditional classification\t\t\t\tbeam %d'
+                     % (self.rad.upper(), date_str, beam)
+                     ).expandtabs()
+        vel_name = ('%s %s\t\t\t\t\t\t\t\tVelocity\t\t\t\t\t\t\t\tbeam %d'
+                    % (self.rad.upper(), date_str, beam)
+                    ).expandtabs()
+        # Create and show subplots
+        rtp = RangeTimePlot(nrang, unique_times)
+        rtp.addGSISPlot(self.data_dict, gs_flg, beam, isgs_name)
+        rtp.addVelPlot(self.data_dict, beam, vel_name, vel_max=vel_max, vel_step=vel_step)
+        if save:
+            plot_date = self.start_time.strftime('%Y%m%d')
+            filename = '%s_%s_%s_traditional.jpg' % (self.rad, plot_date, beam)
+            filepath = self._get_plot_path(alg, 'rti') + '/' + filename
+            rtp.save(filepath)
+        if show:
+            rtp.show()
+        rtp.close()
+
+
     def plot_rti(self, beam, threshold, vel_max=200, vel_step=25, show=True, save=False):
         unique_times = np.unique(np.hstack(self.data_dict['time']))
         nrang = self.data_dict['nrang']
@@ -51,31 +78,37 @@ class Algorithm(object):
         # Set up plot names
         date_str = self.start_time.strftime('%m-%d-%Y')
         alg = type(self).__name__
-        clust_name = ('%s %s\t\t\t\t%d clusters\t\t\t\t%s\t\t\t\tbeam %d'
-                        % (self.rad.upper(), date_str,
-                           len(np.unique(np.hstack(self.clust_flg))),
-                           alg, beam)
-                      ).expandtabs()
-        isgs_name = ('%s %s\t\t\t\tIS/GS\t\t\t\t%s / %s threshold\t\t\t\tbeam %d'
-                        % (self.rad.upper(), date_str, alg, threshold, beam)
-                     ).expandtabs()
-        vel_name = ('%s %s\t\t\t\t\t\t\t\tVelocity\t\t\t\t\t\t\t\tbeam %d'
-                        % (self.rad.upper(), date_str, beam)
-                    ).expandtabs()
-        # Create and show subplots
-        rtp = RangeTimePlot(nrang, unique_times)
-        rtp.addClusterPlot(self.data_dict, self.clust_flg, beam, clust_name)
-        rtp.addGSISPlot(self.data_dict, gs_flg, beam, isgs_name)
-        rtp.addVelPlot(self.data_dict, beam, vel_name, vel_max=vel_max, vel_step=vel_step)
-        if save:
-            plot_date = self.start_time.strftime('%Y%m%d')
-            filename = '%s_%s_%s_%s.jpg' % (self.rad, plot_date, beam,
-                                            threshold.replace(' ', '').lower())
-            filepath = self._get_plot_path(alg, 'rti') + '/' + filename
-            rtp.save(filepath)
-        if show:
-            rtp.show()
-        rtp.close()
+
+        if beam == '*':
+            beams = range(int(self.data_dict['nbeam']))
+        else:
+            beams = [beam]
+        for b in beams:
+            clust_name = ('%s %s\t\t\t\t%d clusters\t\t\t\t%s\t\t\t\tbeam %d'
+                            % (self.rad.upper(), date_str,
+                               len(np.unique(np.hstack(self.clust_flg))),
+                               alg, b)
+                          ).expandtabs()
+            isgs_name = ('%s %s\t\t\t\tIS/GS\t\t\t\t%s / %s threshold\t\t\t\tbeam %d'
+                            % (self.rad.upper(), date_str, alg, threshold, b)
+                         ).expandtabs()
+            vel_name = ('%s %s\t\t\t\t\t\t\t\tVelocity\t\t\t\t\t\t\t\tbeam %d'
+                            % (self.rad.upper(), date_str, b)
+                        ).expandtabs()
+            # Create and show subplots
+            rtp = RangeTimePlot(nrang, unique_times)
+            rtp.addClusterPlot(self.data_dict, self.clust_flg, b, clust_name)
+            rtp.addGSISPlot(self.data_dict, gs_flg, b, isgs_name)
+            rtp.addVelPlot(self.data_dict, b, vel_name, vel_max=vel_max, vel_step=vel_step)
+            if save:
+                plot_date = self.start_time.strftime('%Y%m%d')
+                filename = '%s_%s_%s_%s.jpg' % (self.rad, plot_date, b,
+                                                threshold.replace(' ', '').lower())
+                filepath = self._get_plot_path(alg, 'rti') + '/' + filename
+                rtp.save(filepath)
+            if show:
+                rtp.show()
+            rtp.close()
 
 
     def plot_fanplots(self, start_time, end_time, vel_max=200, vel_step=25, show=True, save=False):
@@ -226,6 +259,16 @@ class Algorithm(object):
         return random_flags
 
 
+class Traditional(Algorithm):
+    """
+    Stub class used just to plot the traditional method.
+    Initialize it and call plot_traditional_rti (also available from any other algorithm class)
+    """
+    def __init__(self, start_time, end_time, rad):
+        super().__init__(start_time, end_time, rad, params={}, useSavedResult=False)
+
+
+
 from sklearn.mixture import GaussianMixture
 from scipy.stats import boxcox
 import time
@@ -248,6 +291,21 @@ class GMMAlgorithm(Algorithm):
         estimator.fit(data)
         runtime = time.time() - t0
         clust_flg = estimator.predict(data)
+        return clust_flg, runtime
+
+
+    def _gmm_on_existing_clusters(self, data, clust_flg):
+        labels_unique = np.unique(clust_flg)
+        runtime = 0
+        for c in labels_unique:
+            gb_cluster_mask = (clust_flg == c)
+            num_pts = np.sum(gb_cluster_mask)
+            if num_pts < 500 or c == -1:
+                continue
+            gmm_labels, gmm_runtime = self._gmm(data[gb_cluster_mask])
+            runtime += gmm_runtime
+            gmm_labels += np.max(clust_flg) + 1
+            clust_flg[gb_cluster_mask] = gmm_labels
         return clust_flg, runtime
 
 
@@ -318,7 +376,7 @@ class GBDBAlgorithm(Algorithm):
             scan_pt_labels = [grid_labels[scan_i][grid_id] for grid_id in m_i]
             clust_flgs.extend(scan_pt_labels)
         runtime = time.time() - t0
-        return clust_flgs, runtime
+        return np.array(clust_flgs), runtime
 
 
     def _get_gbdb_data_matrix(self, data_dict):
