@@ -68,9 +68,9 @@ if __name__ == '__main__':
     import datetime
     start_time = datetime.datetime(2018, 2, 7)
     end_time = datetime.datetime(2018, 2, 7, 12)
-    dbgmm = DBSCAN_GMM(start_time, end_time, 'cvw', n_clusters=2, useSavedResult=False)
-    dbgmm.save_result()
+    dbgmm = DBSCAN_GMM(start_time, end_time, 'cvw', n_clusters=2, useSavedResult=True)
+    #dbgmm.save_result()
     dbgmm.plot_rti(8, 'Blanchard code', vel_max=100, vel_step=10)
-    start_time = datetime.datetime(2018, 2, 7, 12, 0, 0)
-    end_time = datetime.datetime(2018, 2, 7, 12, 5, 0)
+    start_time = datetime.datetime(2018, 2, 7, 0, 0, 0)
+    end_time = datetime.datetime(2018, 2, 7, 0, 1, 0)
     dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10)

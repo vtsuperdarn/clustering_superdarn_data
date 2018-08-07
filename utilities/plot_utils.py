@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.dates as mdates
 from matplotlib.dates import DateFormatter, num2date
 from matplotlib import patches
+import matplotlib.patches as mpatches
 
 
 CLUSTER_CMAP = plt.cm.gist_rainbow
@@ -83,6 +84,9 @@ class RangeTimePlot(object):
             bounds = [0, 1, 2]          # Lower bound inclusive, upper bound non-inclusive
         self._create_colormesh(self.isgs_ax, time, gate, flags, mask, bounds, cmap)
         self.isgs_ax.set_title(title)
+        # Add a legend
+        handles = [mpatches.Patch(color='red', label='IS'), mpatches.Patch(color='blue', label='GS')]
+        self.isgs_ax.legend(handles=handles, loc=4)
 
 
     def addVelPlot(self, data_dict, beam, title, vel_max=200, vel_step=25, show_closerange=True):
@@ -226,6 +230,7 @@ class FanPlot:
                     m = int(len(beam_c) / 2)  # Beam is sorted, so this is roughly the index of the median beam
                     self.text(str(c), beam_c[m], gate_c[m])  # Label cluster #
                 self.plot(clust_ax, beam_c, gate_c, color)
+            clust_ax.set_title('Clusters')
             # Velocity fanplot
             vel_ax = self.add_axis(fig, 122)
             for s in range(len(vel_ranges) - 1):
@@ -234,9 +239,10 @@ class FanPlot:
                 gate_s = data_dict['gate'][i][step_mask]
                 self.plot(vel_ax, beam_s, gate_s, vel_colors[s])
             self._add_colorbar(fig, vel_ax, vel_ranges, vel_cmap)
+            vel_ax.set_title('Velocity')
             # Add title
             scan_time = num2date(data_dict['time'][i][0]).strftime('%H:%M:%S')
-            plt.suptitle('%sscan time %s' % (name, scan_time))
+            plt.suptitle('\n\n%sscan time %s' % (name, scan_time))
             if save:
                 filepath = '%s_%s.jpg' % (base_filepath, scan_time)
                 plt.savefig(filepath)
@@ -317,10 +323,12 @@ class FanPlot:
 
 
     def show(self):
+        plt.tight_layout()
         plt.show()
 
 
     def save(self, filepath):
+        plt.tight_layout()
         plt.savefig(filepath)
         plt.close()
 
