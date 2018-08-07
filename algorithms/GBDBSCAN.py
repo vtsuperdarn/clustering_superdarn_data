@@ -22,7 +22,6 @@ class GBDBSCAN(GBDBAlgorithm):
             self.clust_flg = self._1D_to_scanxscan(clust_flg)
 
 
-
 if __name__ == '__main__':
     import datetime
     start_time = datetime.datetime(2018, 2, 7)
