@@ -171,17 +171,22 @@ class Algorithm(object):
         return scans
 
 
-    # TODO add a function to print loadable params
     def _get_pickle_path(self):
         """
         Get path to the unique pickle file for an object with this time/radar/params/algorithm
         :return: path to pickle file (string)
         """
-        # Create a unique filename based on params
+        # Create a unique filename based on params/date/radar
+        params = '{'
+        for i, key in enumerate(sorted(self.params.keys())):          # Sort so that the order is not random
+            params += "%s: %s" % (key, self.params[key])
+            if i != len(self.params.keys()) - 1:
+                params += ', '
+        params += '}'
         filename = '%s_%s_%s_%s' % (self.rad,
                                     self.start_time.strftime('%Y%m%d-%H:%M:%S'),
                                     self.end_time.strftime('%Y%m%d-%H:%M:%S'),
-                                    str(self.params))
+                                    params)
         # Save the pickle
         return self.pickle_dir + '/' + filename + '.pickle'
 

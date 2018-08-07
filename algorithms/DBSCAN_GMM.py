@@ -10,7 +10,7 @@ class DBSCAN_GMM(GMMAlgorithm):
     def __init__(self, start_time, end_time, rad,
                  beam_eps=3, gate_eps=1, scan_eps=1,                # DBSCAN
                  minPts=5, eps=1,                                   # DBSCAN
-                 n_clusters=3, cov='full',                          # GMM
+                 n_clusters=5, cov='full',                          # GMM
                  features=['beam', 'gate', 'time', 'vel', 'wid'],   # GMM
                  BoxCox=False,                                      # GMM
                  useSavedResult=False):
@@ -85,9 +85,9 @@ if __name__ == '__main__':
     import datetime
     start_time = datetime.datetime(2018, 2, 7)
     end_time = datetime.datetime(2018, 2, 8)
-    dbgmm = DBSCAN_GMM(start_time, end_time, 'cvw', useSavedResult=True)
-    #dbgmm.save_result()
-    dbgmm.plot_rti(8, 'Blanchard code', vel_max=100, vel_step=10, save=True)
+    dbgmm = DBSCAN_GMM(start_time, end_time, 'cvw', n_clusters=5, useSavedResult=False)
+    dbgmm.save_result()
+    dbgmm.plot_rti(8, 'Blanchard code', vel_max=100, vel_step=10)
     start_time = datetime.datetime(2018, 2, 7, 12, 0, 0)
     end_time = datetime.datetime(2018, 2, 7, 12, 5, 0)
-    dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10, save=True)
+    dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10)

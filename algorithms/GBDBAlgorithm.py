@@ -7,7 +7,6 @@ GBDBSCAN + Timefilter
 If you don't want the timefilter, run it on 1 scan at a time.
 """
 from algorithms.Algorithm import Algorithm
-
 import numpy as np
 
 UNCLASSIFIED = 0
