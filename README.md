@@ -2,7 +2,7 @@
 
 ### Setup instructions:
 
-This project was written in Python 3.5.2 on Ubuntu 16.04.
+This project was written in Python 3.5 and Python 3.6 on Ubuntu 16.04 and Ubuntu 18.04.
 
 ### Ubuntu setup:
 
@@ -12,29 +12,25 @@ Make sure the Python3 and Python3 tkinter package is installed. This is required
 
 Clone the repo and navigate to the root directory.
 
-Optional step: Create a virtual environment using:
+Optional: Create a virtual environment using:
 
 `virtualenv -p /usr/bin/python3 venv`
 
 `source venv/bin/activate`
 
-Install requirements using Pip (if python2 is your default, make sure to use pip3 and python3 commands):
+Install these dependencies using Pip (if python2 is your default, make sure to use pip3 command):
 
-`pip install -r requirements.txt`
-
-If this does not work (happens on Ubuntu < 16) you can manually install dependencies:
-
-`pip install sklearn`
-
-`pip install matplotlib`
-
-`pip install scipy`
-
-`pip install numpy`
-
-`pip install pandas`
+`matplotlib`
+`scipy`
+`numpy`
+`sklearn` 
+`pillow`
 
 Now you can run the files.
+
+For a demonstration of how it works, see this iPython notebook:
+
+`cluster.ipynb`
 
 
 ### Windows setup

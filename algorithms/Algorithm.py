@@ -262,3 +262,149 @@ class GMMAlgorithm(Algorithm):
 
 
 
+
+
+class GBDBAlgorithm(Algorithm):
+    """
+    Grid-based DBSCAN
+    Based on Kellner et al. 2012
+
+    This is the fast implementation of Grid-based DBSCAN, with a timefilter added in.
+    If you don't want the timefilter, run it on just 1 scan.
+    """
+
+    """
+    GBDB params dict keys:
+    f, g, pts_ratio
+
+    Other class variables unique to GBDB:
+    self.C
+    self.r_init
+    self.dr
+    self.dtheta
+    """
+
+    # TODO make this so that it labels the first cluster 0, like other algorithms in this library
+    # TODO remove the damn sparse matrix, it's useless?
+    UNCLASSIFIED = 0
+    NOISE = -1
+
+    def __init__(self, start_time, end_time, rad, params, useSavedResult):
+        # Call superclass constructor to get data_dict and save params
+        super().__init__(start_time, end_time, rad,
+                         params, useSavedResult=useSavedResult)
+        if not useSavedResult:
+            # Create the C matrix - ratio of radial / angular distance for each point
+            dtheta = self.params['dtheta'] * np.pi / 180.0
+            nrang, nbeam = int(self.data_dict['nrang']), int(self.data_dict['nbeam'])
+            self.C = np.zeros((nrang, nbeam))
+            for gate in range(nrang):
+                for beam in range(nbeam):
+                    self.C[gate, beam] = self._calculate_ratio(self.params['dr'], dtheta, gate, beam,
+                                                               r_init=self.params['r_init'])
+
+    def _gbdb(self, data, data_i):
+        t0 = time.time()
+        cluster_id = 1
+        clust_flgs = []
+        nscans = len(data)
+        grid_labels = [np.zeros(data[0].shape).astype(int) for i in range(nscans)]
+        for scan_i in range(nscans):
+            m_i = data_i[scan_i]
+            for grid_id in m_i:
+                if grid_labels[scan_i][grid_id] == self.UNCLASSIFIED:
+                    if self._expand_cluster(data, grid_labels, scan_i, grid_id, cluster_id):
+                        cluster_id = cluster_id + 1
+            scan_pt_labels = [grid_labels[scan_i][grid_id] for grid_id in m_i]
+            clust_flgs.extend(scan_pt_labels)
+        runtime = time.time() - t0
+        return clust_flgs, runtime
+
+
+    def _get_gbdb_data_matrix(self, data_dict):
+        from scipy import sparse
+        gate = data_dict['gate']
+        beam = data_dict['beam']
+        values = [[True]*len(s) for s in beam]
+        ngate = int(data_dict['nrang'])
+        nbeam = int(data_dict['nbeam'])
+        nscan = len(beam)
+        data = []
+        data_i = []
+        for i in range(nscan):
+            m = sparse.csr_matrix((values[i], (gate[i], beam[i])), shape=(ngate, nbeam))
+            m_i = list(zip(np.array(gate[i]).astype(int), np.array(beam[i]).astype(int)))
+            data.append(m)
+            data_i.append(m_i)
+        return data, data_i
+
+
+    def _expand_cluster(self, data, grid_labels, scan_i, grid_id, cluster_id):
+        seeds, possible_pts = self._region_query(data, scan_i, grid_id)
+        k = possible_pts * self.params['pts_ratio']
+        if len(seeds) < k:
+            grid_labels[scan_i][grid_id] = self.NOISE
+            return False
+        else:
+            grid_labels[scan_i][grid_id] = cluster_id
+            for seed_id in seeds:
+                grid_labels[seed_id[0]][seed_id[1]] = cluster_id
+
+            while len(seeds) > 0:
+                current_scan, current_grid = seeds[0][0], seeds[0][1]
+                results, possible_pts = self._region_query(data, current_scan, current_grid)
+                k = possible_pts * self.params['pts_ratio']
+                if len(results) >= k:
+                    for i in range(0, len(results)):
+                        result_scan, result_point = results[i][0], results[i][1]
+                        if grid_labels[result_scan][result_point] == self.UNCLASSIFIED \
+                                or grid_labels[result_scan][result_point] == self.NOISE:
+                            if grid_labels[result_scan][result_point] == self.UNCLASSIFIED:
+                                seeds.append((result_scan, result_point))
+                            grid_labels[result_scan][result_point] = cluster_id
+                seeds = seeds[1:]
+            return True
+
+
+    def _region_query(self, data, scan_i, grid_id):
+        seeds = []
+        hgt = self.params['g']
+        wid = self.params['g'] / (self.params['f'] * self.C[grid_id[0], grid_id[1]])
+        ciel_hgt = int(np.ceil(hgt))
+        ciel_wid = int(np.ceil(wid))
+
+        # Check for neighbors in a box of shape ciel(2*wid), ciel(2*hgt) around the point
+        g_min = max(0, grid_id[0] - ciel_hgt)     # gate box
+        g_max = min(int(self.data_dict['nrang']), grid_id[0] + ciel_hgt + 1)
+        b_min = max(0, grid_id[1] - ciel_wid)     # beam box
+        b_max = min(int(self.data_dict['nbeam']), grid_id[1] + ciel_wid + 1)
+        s_min = max(0, scan_i - self.params['scan_eps'])  # scan box
+        s_max = min(len(data), scan_i + self.params['scan_eps']+1)
+        possible_pts = 0
+        for g in range(g_min, g_max):
+            for b in range(b_min, b_max):
+                new_id = (g, b)
+                # Add the new point only if it falls within the ellipse defined by wid, hgt
+                for s in range(s_min, s_max):   # time filter
+                    if self._in_ellipse(new_id, grid_id, hgt, wid):
+                        possible_pts += 1
+                        if data[s][new_id]:   # Add the point to seeds only if there is a 1 in the sparse matrix there
+                            seeds.append((s, new_id))
+        return seeds, possible_pts
+
+
+    def _in_ellipse(self, p, q, hgt, wid):
+        return ((q[0] - p[0])**2.0 / hgt**2.0 + (q[1] - p[1])**2.0 / wid**2.0) <= 1.0
+
+
+    # This is the ratio between radial and angular distance for some point on the grid.
+    # There is very little variance from beam to beam for our radars - down to the 1e-16 level.
+    # So the rows of this have minimal effect.
+    def _calculate_ratio(self, dr, dt, i, j, r_init=0):
+        r_init, dr, dt, i, j = float(r_init), float(dr), float(dt), float(i), float(j)
+        cij = (r_init + dr * i) / (2.0 * dr) * (np.sin(dt * (j + 1.0) - dt * j) + np.sin(dt * j - dt * (j - 1.0)))
+        return cij
+
+
+
+

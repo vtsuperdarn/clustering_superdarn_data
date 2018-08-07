@@ -5,7 +5,25 @@ import matplotlib.dates as mdates
 from matplotlib.dates import DateFormatter, num2date
 from matplotlib import patches
 
-cluster_cmap = plt.cm.gist_rainbow      # Default colormap for plotting clusters on RTI and fan plots
+
+CLUSTER_CMAP = plt.cm.gist_rainbow
+
+def get_cluster_cmap():
+    cmap = CLUSTER_CMAP
+    cmaplist = [cmap(i) for i in range(cmap.N)]
+    np.random.seed(0)
+    np.random.shuffle(cmaplist)
+    return cmap.from_list('Cluster cmap', cmaplist, cmap.N)
+
+
+def get_cluster_noise_cmap():
+    cmap = CLUSTER_CMAP
+    cmaplist = [cmap(i) for i in range(cmap.N)]
+    np.random.seed(0)
+    np.random.shuffle(cmaplist)
+    cmaplist[0] = (0, 0, 0, 1.0)
+    return cmap.from_list('Cluster cmap', cmaplist, cmap.N)
+
 
 class RangeTimePlot(object):
     """
@@ -32,9 +50,10 @@ class RangeTimePlot(object):
         if show_closerange:
             mask = mask & (gate > 10)
         if -1 in flags:
-            cmap = plt.cm.nipy_spectral     # black and grey at edges
+            cmap = get_cluster_noise_cmap()       # black for noise
         else:
-            cmap = cluster_cmap             # no black or grey
+            cmap = get_cluster_cmap()             # no black or grey
+
 
         # Lower bound for cmap is inclusive, upper bound is non-inclusive
         bounds = list(range(int(np.min(flags)), int(np.max(flags))+2))    # need (max_cluster+1) to be the upper bound
@@ -138,6 +157,7 @@ class RangeTimePlot(object):
         mesh_x, mesh_y = np.meshgrid(self.unique_times, self.unique_gates)
         masked_colormesh = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)
         norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+        # cmap.set_bad('w', alpha=0.0)
         # Configure axes
         ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
         hours = mdates.HourLocator(byhour=range(0, 24, 4))
@@ -178,9 +198,14 @@ class FanPlot:
                       vel_max=200, vel_step=25,
                       show=True, save=False, base_filepath=''):
         unique_clusters = np.unique(np.hstack(clust_flg))
+        if -1 in np.hstack(unique_clusters):
+            cluster_cmap = get_cluster_noise_cmap()
+        else:
+            cluster_cmap = get_cluster_cmap()
+
         cluster_colors = list(cluster_cmap(
-                                np.linspace(0, 1, np.max(unique_clusters) + 1)
-                               ))
+                                range(int(np.min(unique_clusters)), int(np.max(unique_clusters)) + 2)
+                              ))
         vel_ranges = list(range(-vel_max, vel_max + 1, vel_step))
         vel_ranges.insert(0, -9999)
         vel_ranges.append(9999)
@@ -196,10 +221,8 @@ class FanPlot:
                 clust_mask = clust_flg[i] == c
                 beam_c = data_dict['beam'][i][clust_mask]
                 gate_c = data_dict['gate'][i][clust_mask]
-                if c == -1:
-                    color = (0, 0, 0, 1)
-                else:
-                    color = cluster_colors[c]
+                color = cluster_colors[c+1]
+                if c != -1:
                     m = int(len(beam_c) / 2)  # Beam is sorted, so this is roughly the index of the median beam
                     self.text(str(c), beam_c[m], gate_c[m])  # Label cluster #
                 self.plot(clust_ax, beam_c, gate_c, color)
