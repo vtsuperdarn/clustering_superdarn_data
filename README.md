@@ -5,20 +5,19 @@ Google Summer of Code 2018 project link:
 https://summerofcode.withgoogle.com/projects/#5795870029643776
 
 
-This project aims to develop a new approach of classifying SuperDARN 
+This project is developing new models for classifying SuperDARN 
 (Super Dual Auroral Radar Network) data using machine learning algorithms.
-In the past, this data has been classified using a formula based on 
-doppler velocity and spectral width which is biased to miscategorize 
-low-velocity ionospheric backscatter (IS) as ground scatter (GS). 
-Recently, researchers successfully applied machine learning techniques 
-to this data. These approaches improved on past methods, but they used a 
-very limited set of features and relied on simple machine learning methods
-(k-means) that do not easily capture non-linear relationships or subtle 
-probability distributions. 
+In the past, this data has been classified point-by-point using a 
+quadratic formula based on doppler velocity and spectral width. 
+Recently, researchers successfully applied unsupervised clustering 
+techniques to this data. These approaches improved on past methods, but they used a 
+very limited set of features to create clusters and relied on simple 
+methods (k-means, depth-first search) that do not easily capture 
+non-linear relationships or subtle probability distributions. 
 
 This project applies DBSCAN and Gaussian Mixture Model to the data, and provides a library
 of various combinations of clustering algorithms and classification thresholds
-which can be used on the data. Depending on what type of data the user wants
+which can be used on SuperDARN data. Depending on what type of data the user wants
 to study, they can choose the tools and parameters that are most suitable.
 
 ## Algorithms
@@ -69,12 +68,6 @@ Make sure the Python3 and Python3 tkinter package is installed. This is required
 
 Clone the repo and navigate to the root directory.
 
-Optional: Create a virtual environment using:
-
-`virtualenv -p /usr/bin/python3 venv`
-
-`source venv/bin/activate`
-
 Install these dependencies using Pip (if python2 is your default, make sure to use pip3 command):
 
 `matplotlib`
@@ -84,9 +77,9 @@ Install these dependencies using Pip (if python2 is your default, make sure to u
 `pillow`
 `jupyter`
 
-Now you can run the files.
+Now you can run the files using Python 3.
 
-For a demonstration of how it works, see this iPython notebook:
+For a demonstration of how to run the algorithms and produce plots, see this iPython notebook:
 
 `cluster.ipynb`
 
