@@ -11,9 +11,9 @@ methods (k-means, depth-first search) that do not easily capture
 non-linear relationships or subtle probability distributions. 
 
 This project applies DBSCAN and Gaussian Mixture Model to the data, and provides a library
-of various combinations of clustering algorithms and classification thresholds
-which can be used on SuperDARN data. Depending on what type of data the user wants
-to study, they can choose the tools and parameters that are most suitable.
+with different models and classification thresholds which can be used on SuperDARN data. 
+Depending on characteristics of the data the user wants to study, different models, parameters,
+and thresholds may be suitable.
 
 Google Summer of Code 2018 project link:
 
@@ -53,6 +53,28 @@ ranges due to its wide search area.
 Applies GBDBSCAN on the space-time features, then applies GMM to 
 separate clusters based on velocity and width. Takes 5-10 minutes. Not yet
 clear if it's any better than DBSCAN + GMM.
+
+## Classification thresholds
+
+### Blanchard paper
+This is the 'traditional' point-by-point classification method, developed in Blanchard 2009
+for high-latitude radars. We apply it to the median values of a cluster instead of to
+one point at a time.
+
+|vel| < 33.1 + 0.139 * |width| - 0.00133 * |width|^2
+
+### Blanchard code
+This is the classification threshold used in the RST library, and it is credited there to
+Blanchard et al., but we don't know why this is used instead.
+
+|vel| < 30 - 1/3 |width|
+
+### Ribiero
+This classificaion method was developed for mid-latitude radars, and applied on clusters created
+using a depth-first search over space and time [Ribiero 2011]. Clusters are classified based on
+their time duration (L, hours) and the ratio (R) of high:low velocity scatter points in the cluster.
+See Ribiero 2011 Figure 4 for the full flowchart.
+
 
 
 ## Setup instructions:
