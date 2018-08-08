@@ -174,9 +174,8 @@ class Algorithm(object):
 
 
     def _get_plot_path(self, alg, plot_type):
-        today = datetime.datetime.now().strftime('%m-%d-%Y')
-        dir = '%s/%s %s/%s' \
-                  % (self.base_path_dir, today, alg, plot_type)
+        dir = '%s/%s/%s/%s' \
+                  % (self.base_path_dir, alg, self._stringify_params(), plot_type)
         if not os.path.exists(dir):
             os.makedirs(dir)
         return dir
@@ -226,22 +225,26 @@ class Algorithm(object):
         return scans
 
 
-    def _get_pickle_path(self):
-        """
-        Get path to the unique pickle file for an object with this time/radar/params/algorithm
-        :return: path to pickle file (string)
-        """
-        # Create a unique filename based on params/date/radar
+    def _stringify_params(self):
         params = '{'
         for i, key in enumerate(sorted(self.params.keys())):          # Sort so that the order is not random
             params += "%s: %s" % (key, self.params[key])
             if i != len(self.params.keys()) - 1:
                 params += ', '
         params += '}'
+        return params
+
+
+    def _get_pickle_path(self):
+        """
+        Get path to the unique pickle file for an object with this time/radar/params/algorithm
+        :return: path to pickle file (string)
+        """
+        # Create a unique filename based on params/date/radar
         filename = '%s_%s_%s_%s' % (self.rad,
                                     self.start_time.strftime('%Y%m%d-%H:%M:%S'),
                                     self.end_time.strftime('%Y%m%d-%H:%M:%S'),
-                                    params)
+                                    self._stringify_params())
         # Save the pickle
         return self.pickle_dir + '/' + filename + '.pickle'
 
@@ -253,32 +256,6 @@ class Algorithm(object):
             return new_obj.__dict__    # Instance vars of the pickled object
         except FileNotFoundError:
             raise Exception('No pickle file found for this time/radar/params/algorithm')
-
-
-    def _randomize_flags(self, flags):
-        """
-        Randomize flags so that plot colors are randomized
-        DBSCAN can create >1000 clusters, and physically clusters are usually similar in cluster number,
-        so they will be plotted in a similar shade which may not be distinguishable from their neighbors.
-        Randomizing the cluster numbers will reduce (but not eliminate) this problem.
-
-        :param flags: 1D array of flags
-        :return: 1D array of randomly re-assigned flags (cluster shapes are the same, flag #s have been changed)
-        """
-        # Randomize flags so that plot colors are randomized
-        unique_flgs = np.unique(flags)
-        clust_range = list(range(int(min(unique_flgs)), int(max(unique_flgs)) + 1))
-        flg_randomizer = copy.deepcopy(clust_range)
-        np.random.seed(0)   # Subsequent runs will produce the same flags
-        np.random.shuffle(flg_randomizer)
-        random_flags = np.zeros(len(flags))
-        for f in unique_flgs:
-            cluster_mask = f == flags
-            if f == -1:
-                random_flags[cluster_mask] = -1
-            else:
-                random_flags[cluster_mask] = flg_randomizer[f]
-        return random_flags
 
 
 class Traditional(Algorithm):
@@ -339,9 +316,6 @@ class GMMAlgorithm(Algorithm):
                 vals = boxcox(np.abs(vals))[0]
             data.append(vals)
         return np.column_stack(data)
-
-
-
 
 
 class GBDBAlgorithm(Algorithm):

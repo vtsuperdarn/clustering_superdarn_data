@@ -63,13 +63,23 @@ class DBSCAN_GMM(GMMAlgorithm):
         return data
 
 
+import datetime
+from datetime import datetime as dt
+
+dates = [dt(2017, 1, 17), dt(2017, 3, 13), dt(2017, 4, 4), dt(2017, 5, 30), dt(2017, 8, 20),
+         dt(2017, 9, 20), dt(2017, 10, 16), dt(2017, 11, 14), dt(2017, 12, 8), dt(2017, 12, 17),
+         dt(2017, 12, 18), dt(2017, 12, 19), dt(2018, 1, 25), dt(2018, 2, 7), dt(2018, 2, 8),
+         dt(2018, 3, 8), dt(2018, 4, 5)]
+
 if __name__ == '__main__':
-    import datetime
-    start_time = datetime.datetime(2017, 4, 4)
-    end_time = datetime.datetime(2017, 4, 5)
-    dbgmm = DBSCAN_GMM(start_time, end_time, 'sas', useSavedResult=False, BoxCox=True)
-    dbgmm.save_result()
-    dbgmm.plot_rti(8, 'Ribiero', vel_max=100, vel_step=10)
-    fanplot_start = datetime.datetime(2017, 4, 4, 4, 0, 0)
-    fanplot_end = datetime.datetime(2017, 4, 4, 4, 0, 0)
-    dbgmm.plot_fanplots(fanplot_start, fanplot_end, vel_max=100, vel_step=10)
+    rad = 'sas'
+
+    for date in [dates[0]]:
+        start_time = date
+        end_time = date + datetime.timedelta(days=1)
+        dbgmm = DBSCAN_GMM(start_time, end_time, rad,
+                           useSavedResult=False, BoxCox=True)
+        dbgmm.save_result()
+
+        dbgmm.plot_rti('*', 'Ribiero', vel_max=100, vel_step=10)
+        dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10)
