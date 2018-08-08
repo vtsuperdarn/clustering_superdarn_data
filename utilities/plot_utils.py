@@ -90,7 +90,7 @@ class RangeTimePlot(object):
         self.isgs_ax.legend(handles=handles, loc=4)
 
 
-    def addVelPlot(self, data_dict, beam, title, vel_max=200, vel_step=25, show_closerange=True):
+    def addVelPlot(self, data_dict, beam, title, vel_max=200, vel_step=25):
         # add new axis
         self.vel_ax = self._add_axis()
         # set up variables for plotter
@@ -232,7 +232,6 @@ class FanPlot:
                 beam_c = data_dict['beam'][i][clust_mask]
                 gate_c = data_dict['gate'][i][clust_mask]
                 color = cluster_colors[c+1]
-                print(color)
                 if c != -1:
                     m = int(len(beam_c) / 2)  # Beam is sorted, so this is roughly the index of the median beam
                     self.text(str(c), beam_c[m], gate_c[m])  # Label cluster #

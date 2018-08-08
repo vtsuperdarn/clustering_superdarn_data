@@ -69,7 +69,7 @@ if __name__ == '__main__':
     end_time = datetime.datetime(2017, 4, 5)
     dbgmm = DBSCAN_GMM(start_time, end_time, 'sas', useSavedResult=False, BoxCox=True)
     dbgmm.save_result()
-    #dbgmm.plot_rti(8, 'Ribiero', vel_max=100, vel_step=10)
+    dbgmm.plot_rti(8, 'Ribiero', vel_max=100, vel_step=10)
     fanplot_start = datetime.datetime(2017, 4, 4, 4, 0, 0)
     fanplot_end = datetime.datetime(2017, 4, 4, 4, 0, 0)
     dbgmm.plot_fanplots(fanplot_start, fanplot_end, vel_max=100, vel_step=10)
