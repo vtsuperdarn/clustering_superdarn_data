@@ -84,6 +84,5 @@ if __name__ == '__main__':
         dbgmm = DBSCAN_GMM(start_time, end_time, rad,
                            useSavedResult=False, BoxCox=True)
         dbgmm.save_result()
-
-        dbgmm.plot_rti('*', 'Ribiero', vel_max=100, vel_step=10, show=False, save=True)
-        dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10, show=False, save=True)
+        dbgmm.plot_rti('*', 'Blanchard code', vel_max=200, vel_step=25, show=False, save=True)
+        #dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10, show=False, save=True)
