@@ -21,6 +21,10 @@ Google Summer of Code 2018 project link:
 
 https://summerofcode.withgoogle.com/projects/#5795870029643776
 
+Project website:
+
+e-271.github.io
+
 ## Algorithms
 #### GMM
 GMM runs on 5 features by default: beam, gate, time, velocity, and spectral width.
