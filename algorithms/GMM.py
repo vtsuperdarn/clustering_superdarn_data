@@ -1,3 +1,6 @@
+import os.path
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from algorithms.Algorithm import GMMAlgorithm
 import numpy as np
 
