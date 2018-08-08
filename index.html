@@ -1,0 +1,47 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <title>Space@VT GSoC - Esther Robb</title>
+  <meta name="author" content="Esther Robb">
+
+  <link rel="stylesheet" href="css/foundation.css">
+
+  <!--[if lt IE 9]>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.js"></script>
+  <![endif]-->
+</head>
+
+<body>
+  <div class="grid-container">
+    <div class="grid-x grid-padding-x">
+      <div class="large-8 cell">
+        <h3>Using machine learning to improve SuperDARN data classification</h3>
+        <p>This project aims to develop a new approach of classifying SuperDARN (Super Dual Auroral Radar Network) data using machine learning algorithms. In the past, this data has been classified using a formula based on elevation angle, which is not always reliably available, or using another formula based on doppler velocity and spectral width which is biased to miscategorize low-velocity ionospheric backscatter (IS) as ground scatter (GS). Recently, researchers successfully applied machine learning techniques to this data. These approaches improved on past methods, but they used a very limited set of features and relied on simple machine learning methods that do not easily capture non-linear relationships or subtle probability distributions. This project will apply machine learning methods with a focus on using a larger number of well-selected features and using more nuanced algorithms. At the end of the summer, I will deliver a GitHub toolkit with the machine learning tools, a set-up and usage guide, a report on accuracy and validation, and an online graphing tool on the SuperDARN website.</p>
+        <h4>Github Page</h4>
+        <p><a href="https://github.com/vtsuperdarn/clustering_superdarn_data">clustering_superdarn_data</a></p>
+        <h4>Poster</h4>
+        <p><a href="website/docs/robb_superdarn_clustering.pdf">Poster for SuperDARN Workshop 2018</a></p>
+        <h4>Presentation Slides</h4>
+        <p><a href="website/docs/gsoc_slides1.pdf">Presentation 1</a></p>
+        <h3>Schedule</h3>
+        <img src="website/docs/schedule.png">
+
+        <h3>Documentation</h3>
+        <p>
+        <ul>
+          <li><a href="website/part1.html">May 21 - June 8: Creating the toolkit</a></li>
+          <li><a href="website/part2.html">June 11 - July 6: Validating predictions</a></li>
+          <li><a href="website/part3.html">July 9 - July 27: Adding new scatter types</a></li>
+          <li><a href="website/part4.html">July 30 - August 13: Wrapping up</a></li>
+        </ul>
+        </p>
+      </div>
+    </div>
+  </div>
+  
+  <script src="website/js/scripts.js"></script>
+</body>
+</html>
