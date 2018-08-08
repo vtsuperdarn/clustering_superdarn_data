@@ -1,6 +1,63 @@
 # clustering_superdarn_data
 
-### Setup instructions:
+Google Summer of Code 2018 project link:
+
+https://summerofcode.withgoogle.com/projects/#5795870029643776
+
+
+This project aims to develop a new approach of classifying SuperDARN 
+(Super Dual Auroral Radar Network) data using machine learning algorithms.
+In the past, this data has been classified using a formula based on 
+doppler velocity and spectral width which is biased to miscategorize 
+low-velocity ionospheric backscatter (IS) as ground scatter (GS). 
+Recently, researchers successfully applied machine learning techniques 
+to this data. These approaches improved on past methods, but they used a 
+very limited set of features and relied on simple machine learning methods
+(k-means) that do not easily capture non-linear relationships or subtle 
+probability distributions. 
+
+This project applies DBSCAN and Gaussian Mixture Model to the data, and provides a library
+of various combinations of clustering algorithms and classification thresholds
+which can be used on the data. Depending on what type of data the user wants
+to study, they can choose the tools and parameters that are most suitable.
+
+## Algorithms
+### GMM
+GMM runs on 5 features by default: beam, gate, time, velocity, and spectral width.
+It performs well overall, even on clusters that are not well-separated in space and time.
+However, it will often create clusters that are too high variance,causing it to pull in
+scattered points that do not look like they should be clustered together - see the
+fanplots in cluster.ipynb. It is also slow, taking 5-10 minutes for one day of data.
+
+### DBSCAN
+DBSCAN runs on 3 features: beam, gate, and time (space and time).
+It can classify clusters that are well-separated in space in time,
+but will not perform well on mixed scatter. It uses sklearn's implementation
+of DBSCAN, which is highly optimized, so it runs in ~10s on 1 day of data.
+
+### DBSCAN + GMM
+Applies DBSCAN on the space-time features, then applies GMM to 
+separate clusters based on velocity and width. Unlike pure DBSCAN, it can identify
+mixed scatter. It is also much faster than GMM, running in ~15-60s on a full day of data.
+
+### GBDBSCAN
+Grid-based DBSCAN is a modification of regular DBSCAN designed for automotive radars.
+It assumes close objects will appear wider, and distant objects will appear
+narrower, and varies the search area accordingly. See Kellner et al. 2012.
+It is not yet clear whether this assumption is advantageous for SuperDARN data.
+
+My implementation of GBDBSCAN has not been optimized to the extent sklearn's DBSCAN 
+has, so it takes 5-10 minutes, but there is room for improvement. So far,
+it provides similar performace to DBSCAN, but creates less small clusters at close
+ranges due to its wide search area.
+
+### GBDBSCAN + GMM
+Applies GBDBSCAN on the space-time features, then applies GMM to 
+separate clusters based on velocity and width. Takes 5-10 minutes. Not yet
+clear if it's any better than DBSCAN + GMM.
+
+
+## Setup instructions:
 
 This project was written in Python 3.5 and Python 3.6 on Ubuntu 16.04 and Ubuntu 18.04.
 
@@ -25,6 +82,7 @@ Install these dependencies using Pip (if python2 is your default, make sure to u
 `numpy`
 `sklearn` 
 `pillow`
+`jupyter`
 
 Now you can run the files.
 
