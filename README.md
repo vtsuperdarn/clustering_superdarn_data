@@ -1,10 +1,5 @@
 # clustering_superdarn_data
 
-Google Summer of Code 2018 project link:
-
-https://summerofcode.withgoogle.com/projects/#5795870029643776
-
-
 This project is developing new models for classifying SuperDARN 
 (Super Dual Auroral Radar Network) data using machine learning algorithms.
 In the past, this data has been classified point-by-point using a 
@@ -19,6 +14,10 @@ This project applies DBSCAN and Gaussian Mixture Model to the data, and provides
 of various combinations of clustering algorithms and classification thresholds
 which can be used on SuperDARN data. Depending on what type of data the user wants
 to study, they can choose the tools and parameters that are most suitable.
+
+Google Summer of Code 2018 project link:
+
+https://summerofcode.withgoogle.com/projects/#5795870029643776
 
 ## Algorithms
 ### GMM
