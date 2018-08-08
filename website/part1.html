@@ -1,0 +1,63 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Creating the Toolkit</title>
+  <meta name="author" content="Esther Robb">
+  <link rel="stylesheet" href="css/foundation.css">
+</head>
+
+<body>
+  <div class="grid-container">
+    <div class="grid-x grid-padding-x">
+      <div class="large-8 cell">
+		<img href="docs/header.png"></img>
+		<h3>Creating a machine learning toolkit [5/21 - 6/9, 3 weeks]</h3>
+		<ul>
+	    		<li>Study the dataset to determine statistical information. Generate a 2D plot for each pair of features, color-coded by cluster.</li>
+			<li>Implement Akaike Information Criterion (AIC) and Bayesian Information Criterion (BIC) as a performance measure.</li>
+			<li>Test out different kernels and tune parameters.</li>
+			<li>Test the algorithm on 2 datasets: SAS (high-latitude) and a midlatitude radar. Document and debug problems.</li>
+			<li>Create a poster for the SuperDARN workshop (6/3 thru 6/8). Use lots of graphs with good descriptions. Due 5/30.</li>
+			<li>Clean up code</li>
+			<li>Create a GitHub toolkit with the code.</li>
+			<li>Produce online documentation.</li>
+	    </ul>
+        <h4>Work Log</h4>
+	    
+	    <h5>Study the dataset to determine statistical information (Python StatsModel). <b>[done]</b></h5>
+	    <p>See the poster and slides for graphs, or contact me for more graphs. Velocity and spectral width appear Gaussian, but other features such as phi0, power, and beam are not at all Gaussian. GMM is doing a decent job regardless, but it will always pull all the outlier points into one big high-variance cluster. We need to figure out how to deal with the outliers: either using transformations to squash the data such as BoxCox, or figuring out how to get rid of noise (PCA has not yet done the trick, you still see the noise grouped in to 1 cluster, but maybe with the right parameters / features PCA would do it).</p>
+	    
+	    <h5>Implement Akaike Information Criterion (AIC) and Bayesian Information Criterion (BIC) as a performance measure. <b>[done]</b> </h5>
+	    <p>With all 7 features and on all 16 beams, AIC and BIC will just keep decreasing (low score means better model) up to 100 clusters, where it becomes way too computationally expensive to be practical. However, with just 1-2 of the most Gaussian looking features, AIC and BIC show the best model fit for 5-10 clusters. </p>
+	    <p>Some of the features look very Gaussian, like velocity and spectral width, and some don't like beam and power.</p>
+	    <p>5-10 clusters seems to make the most physical sense, where 100 seems like it is overfitting. To make the Gaussian model make sense and not use a huge number of clusters to try to fit something not meant to be fit by a Gaussian, we are considering dropping the features that do not look Gaussian. Alternatively, they could be transformed using a method like Box Cox.</p>
+	    
+	    <h5>Model Selection<b>[will need more work]</b></h5>
+	    <p>Rather than testing kernels (more relevant to Gaussian Process than GMM), I implemented forwards selection to do model selection. However, the results of this are hard to interpret, so this will require more time. The features that make the most 'physical sense' are not the ones being chosen by forward selection - probably because it is just choosing the features that it can best fit with a Gaussian, rather than the ones that might most likely correspond to the IS and GS labels. Backwards selection may tell us more, as it has some advantages over forwards selection.</p>
+	    
+	    <h5>Test the algorithm on 2 datasets: SAS (high-latitude) and a midlatitude radar. Document and debug problems.<b>[done]</b></h5>
+	    <p>The poster above shows a comparison of SAS (high-latitude) vs. CVW (mid-latitude) on Feb 7 2018 (good data, no dual-frequency on this day). They are both doing better than the traditional model, but on CVW on that day some IS is being misclassified as GS on other beams that are not shown there (you can see evidence of this in Figure 10 at range gate 20 - there should not be a bump in both IS and GS in the same range gate).</p>
+	    <p>Next steps here is to study a few days of data, and figure out a better evaluation criteria than what we are currently using (median |velocity| > 15 m/s). Some options are to use a ratio of high:low velocity like in Ribeiro et. al., or to base it on velocity and spectral width like the traditional method does.</p>
+
+	    <h5>Create a poster for the SuperDARN workshop (6/3 thru 6/8). Use lots of graphs with good descriptions. Due 5/30. <b>[done]</b></p>
+	    <p><a href="docs/robb_superdarn_clustering.pdf">Poster for SuperDARN workshop 2018</a></p>
+	    <h5>Clean up code. Put in a virtual environment. <b>[done / will need more work]</b></h5>
+	    <p>Python 3 virtual environment is now set up, and installation is pretty easy within a virtual environment. The code needs more work, but that will have to happen at the end of the summer, once the project is more complete and I know what kind of structure everything will be in.</p>
+	    
+	    <h5>Create a GitHub toolkit with the code. <b>[done]</b></h5>
+	    <p>See main page for a link.</p>
+	    
+	    <h5>Produce online documentation. <b>[done]</b></h5>
+	    <p>Documentation is available here and on the Github page (link on front page). All functions within the superdarn_cluster module are documented with docstrings, but the plotters are not well documented because they are likely to change.</p>
+	    
+	  </div>
+    </div>
+  </div>
+  
+  <script src="js/scripts.js"></script>
+</body>
+</html>
+
+
