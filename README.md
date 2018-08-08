@@ -10,10 +10,12 @@ very limited set of features to create clusters and relied on simple
 methods (k-means, depth-first search) that do not easily capture 
 non-linear relationships or subtle probability distributions. 
 
-This project applies DBSCAN and Gaussian Mixture Model to the data, and provides a library
+This project applies DBSCAN and Gaussian Mixture Model (GMM) to the data, and provides a library
 with different models and classification thresholds which can be used on SuperDARN data. 
 Depending on characteristics of the data the user wants to study, different models, parameters,
-and thresholds may be suitable.
+and thresholds may be suitable. For example, the Ribiero threshold is best for mid-latitude radars, and the Blanchard
+thresholds are best for high-latitude. See below for more details about the individual models
+and thresholds.
 
 Google Summer of Code 2018 project link:
 
@@ -74,8 +76,6 @@ This classificaion method was developed for mid-latitude radars, and applied on 
 using a depth-first search over space and time [Ribiero 2011]. Clusters are classified based on
 their time duration (L, hours) and the ratio (R) of high:low velocity scatter points in the cluster.
 See Ribiero 2011 Figure 4 for the full flowchart.
-
-
 
 ## Setup instructions
 
