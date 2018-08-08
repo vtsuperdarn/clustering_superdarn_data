@@ -1,6 +1,6 @@
 # clustering_superdarn_data
 
-This project is developing new models for classifying SuperDARN 
+We are developing new models for classifying SuperDARN 
 (Super Dual Auroral Radar Network) data using machine learning algorithms.
 In the past, this data has been classified point-by-point using a 
 quadratic formula based on doppler velocity and spectral width. 
