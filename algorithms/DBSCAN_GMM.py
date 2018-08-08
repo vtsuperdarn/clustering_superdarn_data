@@ -29,8 +29,7 @@ class DBSCAN_GMM(GMMAlgorithm):
             clust_flg, self.runtime = self._dbscan_gmm()
             # Randomize flag #'s so that colors on plots are not close to each other
             # (necessary for large # of clusters, but not for small #s)
-            rand_clust_flg = self._randomize_flags(clust_flg)
-            self.clust_flg = self._1D_to_scanxscan(rand_clust_flg)
+            self.clust_flg = self._1D_to_scanxscan(clust_flg)
             print('DBSCAN+GMM clusters: ' + str(np.max(clust_flg)))
 
 
@@ -66,11 +65,11 @@ class DBSCAN_GMM(GMMAlgorithm):
 
 if __name__ == '__main__':
     import datetime
-    start_time = datetime.datetime(2018, 2, 7)
-    end_time = datetime.datetime(2018, 2, 7, 12)
-    dbgmm = DBSCAN_GMM(start_time, end_time, 'cvw', n_clusters=2, useSavedResult=True)
-    #dbgmm.save_result()
-    dbgmm.plot_rti(8, 'Blanchard code', vel_max=100, vel_step=10)
-    start_time = datetime.datetime(2018, 2, 7, 0, 0, 0)
-    end_time = datetime.datetime(2018, 2, 7, 0, 1, 0)
-    dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10)
+    start_time = datetime.datetime(2017, 4, 4)
+    end_time = datetime.datetime(2017, 4, 5)
+    dbgmm = DBSCAN_GMM(start_time, end_time, 'sas', useSavedResult=False, BoxCox=True)
+    dbgmm.save_result()
+    #dbgmm.plot_rti(8, 'Ribiero', vel_max=100, vel_step=10)
+    fanplot_start = datetime.datetime(2017, 4, 4, 4, 0, 0)
+    fanplot_end = datetime.datetime(2017, 4, 4, 4, 0, 0)
+    dbgmm.plot_fanplots(fanplot_start, fanplot_end, vel_max=100, vel_step=10)

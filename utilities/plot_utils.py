@@ -5,6 +5,7 @@ import matplotlib.dates as mdates
 from matplotlib.dates import DateFormatter, num2date
 from matplotlib import patches
 import matplotlib.patches as mpatches
+import random
 
 
 CLUSTER_CMAP = plt.cm.gist_rainbow
@@ -12,16 +13,16 @@ CLUSTER_CMAP = plt.cm.gist_rainbow
 def get_cluster_cmap():
     cmap = CLUSTER_CMAP
     cmaplist = [cmap(i) for i in range(cmap.N)]
-    np.random.seed(0)
-    np.random.shuffle(cmaplist)
+    random.seed(0)
+    random.shuffle(cmaplist)
     return cmap.from_list('Cluster cmap', cmaplist, cmap.N)
 
 
 def get_cluster_noise_cmap():
     cmap = CLUSTER_CMAP
-    cmaplist = [cmap(i) for i in range(cmap.N)]
-    np.random.seed(0)
-    np.random.shuffle(cmaplist)
+    cmaplist = np.array([cmap(i) for i in range(cmap.N)])
+    random.seed(0)
+    random.shuffle(cmaplist)
     cmaplist[0] = (0, 0, 0, 1.0)
     return cmap.from_list('Cluster cmap', cmaplist, cmap.N)
 
@@ -207,9 +208,14 @@ class FanPlot:
         else:
             cluster_cmap = get_cluster_cmap()
 
-        cluster_colors = list(cluster_cmap(
-                                range(int(np.min(unique_clusters)), int(np.max(unique_clusters)) + 2)
-                              ))
+        colors = np.array(cluster_cmap(range(cluster_cmap.N)))
+                                #range(int(np.min(unique_clusters)+1), int(np.max(unique_clusters)) + 2)
+                             # ))
+        n = np.array(range(int(np.min(unique_clusters) + 1), int(np.max(unique_clusters)) + 1)) % cluster_cmap.N
+        np.random.seed(0)
+        np.random.shuffle(n)
+        cluster_colors = [colors[0]]
+        cluster_colors.extend(colors[n])
         vel_ranges = list(range(-vel_max, vel_max + 1, vel_step))
         vel_ranges.insert(0, -9999)
         vel_ranges.append(9999)
@@ -226,6 +232,7 @@ class FanPlot:
                 beam_c = data_dict['beam'][i][clust_mask]
                 gate_c = data_dict['gate'][i][clust_mask]
                 color = cluster_colors[c+1]
+                print(color)
                 if c != -1:
                     m = int(len(beam_c) / 2)  # Beam is sorted, so this is roughly the index of the median beam
                     self.text(str(c), beam_c[m], gate_c[m])  # Label cluster #

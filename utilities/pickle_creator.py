@@ -66,8 +66,8 @@ def make_pickle(date):
         elv_scans.append(elev[scan_mask])
 
 
-    data = {'gate' : gate_scans, 'beam' : beam_scans, 'vel' : vel_scans, 'wid' : wid_scans,
-            'time' : time_scans, 'trad_gsflg' : trad_gs_flg_scans, 'elv' : elv_scans,
+    data = {'gate' : gate_scans, 'beam' : beam_scans, 'vel' : vel_scans, 'wid': wid_scans,
+            'time' : time_scans, 'trad_gsflg' : trad_gs_flg_scans, 'elv': elv_scans,
             'nrang' : nrang, 'nbeam' : nbeam}
     filename = "%s/%s_%s_scans.pickle" % (data_dir, rad, date_str)
     pickle.dump(data, open(filename, 'wb'))

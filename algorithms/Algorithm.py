@@ -334,10 +334,10 @@ class GMMAlgorithm(Algorithm):
     def _get_gmm_data_array(self):
         data = []
         for feature in self.params['features']:
-            vals = self.data_dict[feature]
+            vals = np.hstack(self.data_dict[feature])
             if self.params['BoxCox'] and (feature == 'vel' or feature == 'wid'):
-                vals = boxcox(vals)[0]
-            data.append(np.hstack(vals))
+                vals = boxcox(np.abs(vals))[0]
+            data.append(vals)
         return np.column_stack(data)
 
 
