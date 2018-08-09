@@ -49,7 +49,7 @@ class RangeTimePlot(object):
         allbeam = np.hstack(data_dict['beam'])
         flags = np.hstack(clust_flg)
         mask = allbeam == beam
-        if show_closerange:
+        if not show_closerange:
             mask = mask & (gate > 10)
         if -1 in flags:
             cmap = get_cluster_noise_cmap()       # black for noise
@@ -72,7 +72,7 @@ class RangeTimePlot(object):
         allbeam = np.hstack(data_dict['beam'])
         flags = np.hstack(gs_flg)
         mask = allbeam == beam
-        if show_closerange:
+        if not show_closerange:
             mask = mask & (gate > 10)
         if -1 in flags:                     # contains noise flag
             cmap = mpl.colors.ListedColormap([(0.0, 0.0, 0.0, 1.0),     # black

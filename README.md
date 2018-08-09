@@ -23,7 +23,16 @@ https://summerofcode.withgoogle.com/projects/#5795870029643776
 
 Project website:
 
-e-271.github.io
+https://vtsuperdarn.github.io/clustering_superdarn_data
+
+Plotting tool:
+
+http://vt.superdarn.org/tiki-index.php?page=class_models
+
+Comparison plots:
+
+https://github.com/vtsuperdarn/clustering_superdarn_data/blob/master/cluster.ipynb
+
 
 ## Algorithms
 #### GMM
@@ -91,7 +100,11 @@ Make sure the Python3 and Python3 tkinter package is installed. This is required
 
 `sudo apt-get install python3-tk`
 
-Install these dependencies using Pip (if python2 is your default, make sure to use pip3 command):
+Install the dependencies using Pip (if python2 is your default, make sure to use pip3 command):
+
+`pip install -r requirements.txt`
+
+If that doesn't work, install the libraries manually using Pip:
 
 `matplotlib`
 `scipy`
