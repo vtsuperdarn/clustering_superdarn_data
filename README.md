@@ -29,7 +29,7 @@ Plotting tool:
 
 http://vt.superdarn.org/tiki-index.php?page=class_models
 
-Comparison plots:
+Comparison plot iPython notebook:
 
 https://github.com/vtsuperdarn/clustering_superdarn_data/blob/master/cluster.ipynb
 
@@ -42,6 +42,8 @@ However, it will often create clusters that are too high variance,causing it to 
 scattered points that do not look like they should be clustered together - see the
 fanplots in cluster.ipynb. It is also slow, taking 5-10 minutes for one day of data.
 
+https://github.com/vtsuperdarn/clustering_superdarn_data/blob/master/plotters/gmm.ipynb
+
 #### DBSCAN
 DBSCAN runs on 3 features: beam, gate, and time (space and time).
 It can classify clusters that are well-separated in space in time,
@@ -53,10 +55,12 @@ Applies DBSCAN on the space-time features, then applies GMM to
 separate clusters based on velocity and width. Unlike pure DBSCAN, it can identify
 mixed scatter. It is also much faster than GMM, running in ~15-60s on a full day of data.
 
-#### GBDBSCAN
-Grid-based DBSCAN is a modification of regular DBSCAN designed for automotive radars.
-It assumes close objects will appear wider, and distant objects will appear
-narrower, and varies the search area accordingly. See Kellner et al. 2012.
+https://github.com/vtsuperdarn/clustering_superdarn_data/blob/master/plotters/dbscan_gmm.ipynb
+
+#### GridBasedDBSCAN
+Based on Kellner et al. 2012. Grid-based DBSCAN is a modification of regular DBSCAN   
+designed for automotive radars. It assumes close objects will appear wider, and distant 
+objects will appear narrower, and varies the search area accordingly. 
 It is not yet clear whether this assumption is advantageous for SuperDARN data.
 
 My implementation of GBDBSCAN has not been optimized to the extent sklearn's DBSCAN 
@@ -64,10 +68,14 @@ has, so it takes 5-10 minutes, but there is room for improvement. So far,
 it provides similar performace to DBSCAN, but creates less small clusters at close
 ranges due to its wide search area.
 
-#### GBDBSCAN + GMM
+https://github.com/vtsuperdarn/clustering_superdarn_data/blob/master/plotters/grid_based_dbscan.ipynb
+
+#### GridBasedDBSCAN + GMM
 Applies GBDBSCAN on the space-time features, then applies GMM to 
 separate clusters based on velocity and width. Takes 5-10 minutes. Not yet
 clear if it's any better than DBSCAN + GMM.
+
+https://github.com/vtsuperdarn/clustering_superdarn_data/blob/master/plotters/grid_based_dbscan_gmm.ipynb
 
 ## Classification thresholds
 
