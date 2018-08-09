@@ -125,7 +125,7 @@ Now you can run the files using Python 3.
 
 For a demonstration of how to run the algorithms and produce plots, see this iPython notebook:
 
-`cluster.ipynb`
+https://github.com/vtsuperdarn/clustering_superdarn_data/blob/master/cluster.ipynb
 
 #### Windows setup
 
