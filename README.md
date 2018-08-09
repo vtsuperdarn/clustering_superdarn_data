@@ -25,6 +25,10 @@ Project website:
 
 https://vtsuperdarn.github.io/clustering_superdarn_data
 
+Plotting tool:
+
+http://vt.superdarn.org/tiki-index.php?page=class_models
+
 ## Algorithms
 #### GMM
 GMM runs on 5 features by default: beam, gate, time, velocity, and spectral width.
