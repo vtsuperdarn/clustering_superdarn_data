@@ -29,10 +29,6 @@ Plotting tool:
 
 http://vt.superdarn.org/tiki-index.php?page=class_models
 
-Comparison plot iPython notebook:
-
-https://github.com/vtsuperdarn/clustering_superdarn_data/blob/master/cluster.ipynb
-
 
 ## Algorithms
 #### GMM
@@ -122,10 +118,6 @@ If that doesn't work, install the libraries manually using Pip:
 `jupyter`
 
 Now you can run the files using Python 3.
-
-For a demonstration of how to run the algorithms and produce plots, see this iPython notebook:
-
-https://github.com/vtsuperdarn/clustering_superdarn_data/blob/master/cluster.ipynb
 
 #### Windows setup
 

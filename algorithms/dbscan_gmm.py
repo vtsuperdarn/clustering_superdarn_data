@@ -1,6 +1,8 @@
+import sys
+sys.path.insert(0,'..')
+from algorithms.algorithm import GMMAlgorithm
 import numpy as np
 from sklearn.cluster import DBSCAN
-from algorithms.algorithm import GMMAlgorithm
 import time
 
 class DBSCAN_GMM(GMMAlgorithm):
@@ -8,12 +10,13 @@ class DBSCAN_GMM(GMMAlgorithm):
     Run DBSCAN on space/time features, then GMM on space/time/vel/wid
     """
     def __init__(self, start_time, end_time, rad,
-                 beam_eps=3, gate_eps=1, scan_eps=1,                # DBSCAN
-                 minPts=5, eps=1,                                   # DBSCAN
-                 n_clusters=5, cov='full',                          # GMM
-                 features=['beam', 'gate', 'time', 'vel', 'wid'],   # GMM
-                 BoxCox=False,                                      # GMM
-                 useSavedResult=False):
+                 beam_eps=3, gate_eps=1, scan_eps=1,  # DBSCAN
+                 minPts=5, eps=1,  # DBSCAN
+                 n_clusters=5, cov='full',  # GMM
+                 features=['beam', 'gate', 'time', 'vel', 'wid'],  # GMM
+                 BoxCox=False,  # GMM
+                 load_model=False,
+                 save_model=False):
         super().__init__(start_time, end_time, rad,
                          {'scan_eps' : scan_eps,
                           'beam_eps': beam_eps,
@@ -24,13 +27,15 @@ class DBSCAN_GMM(GMMAlgorithm):
                           'cov': cov,
                           'features': features,
                           'BoxCox': BoxCox},
-                         useSavedResult=useSavedResult)
-        if not useSavedResult:
+                         load_model=load_model)
+        if not load_model:
             clust_flg, self.runtime = self._dbscan_gmm()
             # Randomize flag #'s so that colors on plots are not close to each other
             # (necessary for large # of clusters, but not for small #s)
             self.clust_flg = self._1D_to_scanxscan(clust_flg)
             print('DBSCAN+GMM clusters: ' + str(np.max(clust_flg)))
+        if save_model:
+            self._save_model()
 
 
     def _dbscan_gmm(self):
@@ -63,7 +68,6 @@ class DBSCAN_GMM(GMMAlgorithm):
         return data
 
 
-
 if __name__ == '__main__':
     import datetime
     from datetime import datetime as dt
@@ -78,7 +82,6 @@ if __name__ == '__main__':
         start_time = date
         end_time = date + datetime.timedelta(days=1)
         dbgmm = DBSCAN_GMM(start_time, end_time, rad,
-                           useSavedResult=False, BoxCox=True)
-        dbgmm.save_result()
-        dbgmm.plot_rti('*', 'Blanchard code', vel_max=200, vel_step=25, show=False, save=True)
+                           load_model=False, save_model=True, BoxCox=True)
+        dbgmm.plot_rti('*', 'Blanchard code', vel_max=200, vel_step=25, show_fig=False, save_fig=True)
         #dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10, show=False, save=True)

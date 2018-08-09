@@ -1,16 +1,18 @@
+import sys
+sys.path.insert(0,'..')
 from algorithms.algorithm import GridBasedDBAlgorithm, GMMAlgorithm
-
 
 class GridBasedDBSCAN_GMM(GridBasedDBAlgorithm, GMMAlgorithm):
 
     def __init__(self, start_time, end_time, rad,
-                 f=0.2, g=1, pts_ratio=0.3,                             # GBDB
-                 dr=45, dtheta=3.24, r_init=180,                        # GBDB
-                 scan_eps=1,                                            # GBDB Timefilter
-                 n_clusters=3, cov='full',                              # GMM
-                 features=['beam', 'gate', 'time', 'vel', 'wid'],       # GMM
-                 BoxCox=False,                                          # GMM
-                 useSavedResult=False):
+                 f=0.2, g=1, pts_ratio=0.3,  # GBDB
+                 dr=45, dtheta=3.24, r_init=180,  # GBDB
+                 scan_eps=1,  # GBDB Timefilter
+                 n_clusters=3, cov='full',  # GMM
+                 features=['beam', 'gate', 'time', 'vel', 'wid'],  # GMM
+                 BoxCox=False,  # GMM
+                 load_model=False,
+                 save_model=False):
         super().__init__(start_time, end_time, rad,
                          {'f': f,                   # GBDBSCAN stuff
                           'g': g,
@@ -24,10 +26,12 @@ class GridBasedDBSCAN_GMM(GridBasedDBAlgorithm, GMMAlgorithm):
                           'cov': cov,
                           'BoxCox': BoxCox
                           },
-                         useSavedResult=useSavedResult)
-        if not useSavedResult:
+                         load_model=load_model)
+        if not load_model:
             clust_flg, self.runtime = self._gbdb_gmm()
             self.clust_flg = self._1D_to_scanxscan(clust_flg)
+        if save_model:
+            self._save_model()
 
 
     def _gbdb_gmm(self):
@@ -42,10 +46,9 @@ if __name__ == '__main__':
     import datetime
     start_time = datetime.datetime(2018, 2, 7)
     end_time = datetime.datetime(2018, 2, 8)
-    gbdb_gmm = GBDBSCAN_GMM(start_time, end_time, 'cvw', useSavedResult=False)
-    gbdb_gmm.save_result()
+    gbdb_gmm = GridBasedDBSCAN_GMM(start_time, end_time, 'cvw', useSavedResult=False)
     print(gbdb_gmm.__dict__.keys())
     print(gbdb_gmm.runtime)
     gbdb_gmm.plot_rti(8, 'Blanchard code')
     end_time = datetime.datetime(2018, 2, 7, 23, 59)
-    gbdb_gmm.plot_fanplots(start_time, end_time, show=False, save=True)
+    gbdb_gmm.plot_fanplots(start_time, end_time, show_fig=False, save_fig=True)

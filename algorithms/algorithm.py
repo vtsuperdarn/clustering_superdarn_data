@@ -1,8 +1,10 @@
+import sys
+sys.path.insert(0,'..')
+import os
 import pickle
 from utilities.data_utils import get_data_dict_path
 from utilities.plot_utils import RangeTimePlot, FanPlot
 from utilities.classification_utils import *
-import os
 from matplotlib.dates import date2num
 
 
@@ -11,18 +13,15 @@ class Algorithm(object):
     Superclass for algorithms.
     Contains data processing and plotting functions.
     """
-    this_dir = os.path.abspath(os.path.dirname(__file__))
-    base_path_dir = this_dir + '/../plots'
 
     # Public functions
 
-    def __init__(self, start_time, end_time, rad, params, useSavedResult=False):
+    def __init__(self, start_time, end_time, rad, params, load_model=False):
         self.start_time = start_time
         self.end_time = end_time
         self.rad = rad
         self.params = params
-        self.pickle_dir = self.this_dir + '/pickles/' + type(self).__name__
-        if useSavedResult:
+        if load_model:
             # Set instance vars equal to the pickled object's instance vars
             self.__dict__ = self._read_pickle()
         else:
@@ -30,17 +29,6 @@ class Algorithm(object):
             path = get_data_dict_path(start_time, rad)
             data_dict = pickle.load(open(path, 'rb'))
             self.data_dict = self._filter_by_time(start_time, end_time, data_dict)
-
-
-    def save_result(self):
-        """
-        Save a trained algorithm to ./pickles/<alg_name>/<parameter_hash>
-        """
-        # Create a directory unique to the subclass name
-        if not os.path.exists(self.pickle_dir):
-            os.makedirs(self.pickle_dir)
-        picklefile = open(self._get_pickle_path(), 'wb')
-        pickle.dump(self, picklefile)
 
 
     def plot_rti_traditional(self, beam, vel_max=200, vel_step=25, show=True, save=False):
@@ -70,7 +58,7 @@ class Algorithm(object):
         rtp.close()
 
 
-    def plot_rti(self, beam, threshold, vel_max=200, vel_step=25, show=True, save=False):
+    def plot_rti(self, beam, threshold, vel_max=200, vel_step=25, show_fig=True, save_fig=False):
         unique_times = np.unique(np.hstack(self.data_dict['time']))
         nrang = self.data_dict['nrang']
         gs_flg = np.hstack(self._classify(threshold))
@@ -99,18 +87,18 @@ class Algorithm(object):
             rtp.addClusterPlot(self.data_dict, self.clust_flg, b, clust_name)
             rtp.addGSISPlot(self.data_dict, gs_flg, b, isgs_name)
             rtp.addVelPlot(self.data_dict, b, vel_name, vel_max=vel_max, vel_step=vel_step)
-            if save:
+            if save_fig:
                 plot_date = self.start_time.strftime('%Y%m%d')
                 filename = '%s_%s_%s_%s.jpg' % (self.rad, plot_date, b,
                                                 threshold.replace(' ', '').lower())
                 filepath = self._get_plot_path(alg, 'rti') + '/' + filename
                 rtp.save(filepath)
-            if show:
+            if show_fig:
                 rtp.show()
             rtp.close()
 
 
-    def plot_fanplots(self, start_time, end_time, vel_max=200, vel_step=25, show=True, save=False):
+    def plot_fanplots(self, start_time, end_time, vel_max=200, vel_step=25, show_fig=True, save_fig=False):
         # Find the corresponding scans
         s, e = date2num(start_time), date2num(end_time)
         scan_start = None
@@ -128,7 +116,7 @@ class Algorithm(object):
         date_str = self.start_time.strftime('%m-%d-%Y')
         alg = type(self).__name__
 
-        if save:       # Only create the directory path if savePlot is true
+        if save_fig:       # Only create the directory path if savePlot is true
             plot_date = self.start_time.strftime('%Y%m%d')
             filename = '%s_%s' % (self.rad, plot_date)      # Scan time and .jpg will be added to this by plot_clusters
             base_filepath = self._get_plot_path(alg, 'fanplot') + '/' + filename
@@ -144,11 +132,23 @@ class Algorithm(object):
         fanplot.plot_clusters(self.data_dict, self.clust_flg,
                               range(scan_start, scan_end+1),
                               vel_max=vel_max, vel_step=vel_step,
-                              name=fan_name, show=show, save=save,
+                              name=fan_name, show=show_fig, save=save_fig,
                               base_filepath=base_filepath)
 
 
     # Private functions
+
+    def _save_model(self):
+        """
+        Save a trained algorithm to ./pickles/<alg_name>/<parameter_hash>
+        """
+        # Create a directory unique to the subclass name
+        base_pickle_dir = self._get_base_pickle_dir()
+        if not os.path.exists(base_pickle_dir):
+            os.makedirs(base_pickle_dir)
+        picklefile = open(self._get_pickle_path(), 'wb')
+        pickle.dump(self, picklefile)
+
 
     def _filter_by_time(self, start_time, end_time, data_dict):
         time = data_dict['time']
@@ -172,8 +172,9 @@ class Algorithm(object):
 
 
     def _get_plot_path(self, alg, plot_type):
+        base_plot_dir = os.path.abspath(os.path.dirname(__file__)) + '/../plots'
         dir = '%s/%s/%s/%s' \
-                  % (self.base_path_dir, alg, self._stringify_params(), plot_type)
+                  % (base_plot_dir, alg, self._stringify_params(), plot_type)
         if not os.path.exists(dir):
             os.makedirs(dir)
         return dir
@@ -233,6 +234,10 @@ class Algorithm(object):
         return params
 
 
+    def _get_base_pickle_dir(self):
+        return os.path.abspath(os.path.dirname(__file__)) + '/pickles/' + type(self).__name__
+
+
     def _get_pickle_path(self):
         """
         Get path to the unique pickle file for an object with this time/radar/params/algorithm
@@ -244,7 +249,7 @@ class Algorithm(object):
                                     self.end_time.strftime('%Y%m%d-%H:%M:%S'),
                                     self._stringify_params())
         # Save the pickle
-        return self.pickle_dir + '/' + filename + '.pickle'
+        return self._get_base_pickle_dir() + '/' + filename + '.pickle'
 
 
     def _read_pickle(self):
@@ -253,7 +258,7 @@ class Algorithm(object):
             new_obj = pickle.load(picklefile)
             return new_obj.__dict__    # Instance vars of the pickled object
         except FileNotFoundError:
-            raise Exception('No pickle file found for this time/radar/params/algorithm')
+            raise Exception('No pickle file found for this time/radar/params/algorithm, try setting loadModel=False.')
 
 
 class Traditional(Algorithm):
@@ -262,7 +267,7 @@ class Traditional(Algorithm):
     Initialize it and call plot_traditional_rti (also available from any other algorithm class)
     """
     def __init__(self, start_time, end_time, rad):
-        super().__init__(start_time, end_time, rad, params={}, useSavedResult=False)
+        super().__init__(start_time, end_time, rad, params={}, load_model=False)
 
 
 
@@ -274,8 +279,8 @@ class GMMAlgorithm(Algorithm):
     """
     Superclass holding shared functions for algorithms that use GMM at some point.
     """
-    def __init__(self, start_time, end_time, rad, params, useSavedResult):
-        super().__init__(start_time, end_time, rad, params, useSavedResult=useSavedResult)
+    def __init__(self, start_time, end_time, rad, params, load_model):
+        super().__init__(start_time, end_time, rad, params, load_model=load_model)
 
 
     def _gmm(self, data):
@@ -336,16 +341,14 @@ class GridBasedDBAlgorithm(Algorithm):
     self.dtheta
     """
 
-    # TODO make this so that it labels the first cluster 0, like other algorithms in this library
-    # TODO remove the damn sparse matrix, it's useless?
     UNCLASSIFIED = 0
     NOISE = -1
 
-    def __init__(self, start_time, end_time, rad, params, useSavedResult):
+    def __init__(self, start_time, end_time, rad, params, load_model):
         # Call superclass constructor to get data_dict and save params
         super().__init__(start_time, end_time, rad,
-                         params, useSavedResult=useSavedResult)
-        if not useSavedResult:
+                         params, load_model=load_model)
+        if not load_model:
             # Create the C matrix - ratio of radial / angular distance for each point
             dtheta = self.params['dtheta'] * np.pi / 180.0
             nrang, nbeam = int(self.data_dict['nrang']), int(self.data_dict['nbeam'])

@@ -102,7 +102,7 @@ class RangeTimePlot(object):
         cmap = plt.cm.jet
         mask = allbeam == beam
         self._create_colormesh(self.vel_ax, time, gate, flags, mask, bounds, cmap)
-        self._add_colorbar(self.fig, self.vel_ax, bounds, cmap, label='Velocity')
+        self._add_colorbar(self.fig, self.vel_ax, bounds, cmap, label='Velocity [m/s]')
         self.vel_ax.set_title(title)
 
 
@@ -244,7 +244,7 @@ class FanPlot:
                 beam_s = data_dict['beam'][i][step_mask]
                 gate_s = data_dict['gate'][i][step_mask]
                 self.plot(vel_ax, beam_s, gate_s, vel_colors[s])
-            self._add_colorbar(fig, vel_ax, vel_ranges, vel_cmap)
+            self._add_colorbar(fig, vel_ax, vel_ranges, vel_cmap, label='Velocity [m/s]')
             vel_ax.set_title('Velocity')
             # Add title
             scan_time = num2date(data_dict['time'][i][0]).strftime('%H:%M:%S')
