@@ -13,7 +13,7 @@ CLUSTER_CMAP = plt.cm.gist_rainbow
 def get_cluster_cmap():
     cmap = CLUSTER_CMAP
     cmaplist = [cmap(i) for i in range(cmap.N)]
-    random.seed(0)
+    random.seed(10)
     random.shuffle(cmaplist)
     return cmap.from_list('Cluster cmap', cmaplist, cmap.N)
 
@@ -21,7 +21,7 @@ def get_cluster_cmap():
 def get_cluster_noise_cmap():
     cmap = CLUSTER_CMAP
     cmaplist = np.array([cmap(i) for i in range(cmap.N)])
-    random.seed(0)
+    random.seed(10)
     random.shuffle(cmaplist)
     cmaplist[0] = (0, 0, 0, 1.0)
     return cmap.from_list('Cluster cmap', cmaplist, cmap.N)
@@ -31,16 +31,19 @@ class RangeTimePlot(object):
     """
     Create plots for IS/GS flags, velocity, and algorithm clusters.
     """
-    def __init__(self, nrang, unique_times, num_subplots=3):
+    def __init__(self, nrang, unique_times, fig_title, num_subplots=3):
         self.nrang = nrang
         self.unique_gates = np.linspace(1, nrang, nrang)
         self.unique_times = unique_times
         self.num_subplots = num_subplots
         self._num_subplots_created = 0
-        self.fig = plt.figure(figsize=(14, 5*num_subplots))
+        self.fig = plt.figure(figsize=(8, 3*num_subplots), dpi=100) # Size for website
+        plt.suptitle(fig_title, x=0.075, y=0.99, ha='left', fontweight='bold', fontsize=15)
+        mpl.rcParams.update({'font.size': 10})
 
 
-    def addClusterPlot(self, data_dict, clust_flg, beam, title, show_closerange=True):
+
+    def addClusterPlot(self, data_dict, clust_flg, beam, title, show_closerange=True, xlabel=''):
         # add new axis
         self.cluster_ax = self._add_axis()
         # set up variables for plotter
@@ -56,14 +59,13 @@ class RangeTimePlot(object):
         else:
             cmap = get_cluster_cmap()             # no black or grey
 
-
         # Lower bound for cmap is inclusive, upper bound is non-inclusive
         bounds = list(range(int(np.min(flags)), int(np.max(flags))+2))    # need (max_cluster+1) to be the upper bound
-        self._create_colormesh(self.cluster_ax, time, gate, flags, mask, bounds, cmap)
-        self.cluster_ax.set_title(title)
+        self._create_colormesh(self.cluster_ax, time, gate, flags, mask, bounds, cmap, xlabel)
+        self.cluster_ax.set_title(title,  loc='left', fontdict={'fontweight': 'bold'})
 
 
-    def addGSISPlot(self, data_dict, gs_flg, beam, title, show_closerange=True):
+    def addGSISPlot(self, data_dict, gs_flg, beam, title, show_closerange=True, xlabel=''):
         # add new axis
         self.isgs_ax = self._add_axis()
         # set up variables for plotter
@@ -83,14 +85,14 @@ class RangeTimePlot(object):
             cmap = mpl.colors.ListedColormap([(1.0, 0.0, 0.0, 1.0),  # blue
                                               (0.0, 0.0, 1.0, 1.0)])  # red
             bounds = [0, 1, 2]          # Lower bound inclusive, upper bound non-inclusive
-        self._create_colormesh(self.isgs_ax, time, gate, flags, mask, bounds, cmap)
-        self.isgs_ax.set_title(title)
+        self._create_colormesh(self.isgs_ax, time, gate, flags, mask, bounds, cmap, xlabel)
+        self.isgs_ax.set_title(title,  loc='left', fontdict={'fontweight': 'bold'})
         # Add a legend
         handles = [mpatches.Patch(color='red', label='IS'), mpatches.Patch(color='blue', label='GS')]
         self.isgs_ax.legend(handles=handles, loc=4)
 
 
-    def addVelPlot(self, data_dict, beam, title, vel_max=200, vel_step=25):
+    def addVelPlot(self, data_dict, beam, title, vel_max=200, vel_step=25, xlabel='Time UT'):
         # add new axis
         self.vel_ax = self._add_axis()
         # set up variables for plotter
@@ -101,10 +103,14 @@ class RangeTimePlot(object):
         bounds = list(range(-vel_max, vel_max+1, vel_step))
         cmap = plt.cm.jet
         mask = allbeam == beam
-        self._create_colormesh(self.vel_ax, time, gate, flags, mask, bounds, cmap)
+        self._create_colormesh(self.vel_ax, time, gate, flags, mask, bounds, cmap, xlabel)
+        self._tight_layout()    # need to do this before adding the colorbar, because it depends on the axis position
         self._add_colorbar(self.fig, self.vel_ax, bounds, cmap, label='Velocity [m/s]')
-        self.vel_ax.set_title(title)
+        self.vel_ax.set_title(title, loc='left', fontdict={'fontweight': 'bold'})
 
+
+    def _tight_layout(self):
+        self.fig.tight_layout(rect=[0, 0, 0.9, 0.97])
 
     def show(self):
         plt.show()
@@ -149,7 +155,7 @@ class RangeTimePlot(object):
         cb2.set_label(label)
 
 
-    def _create_colormesh(self, ax, time, gate, flags, mask, bounds, cmap):
+    def _create_colormesh(self, ax, time, gate, flags, mask, bounds, cmap, xlabel=''):
         # Create a (n times) x (n range gates) array and add flag data
         num_times = len(self.unique_times)
         color_mesh = np.zeros((num_times, self.nrang)) * np.nan
@@ -167,7 +173,7 @@ class RangeTimePlot(object):
         ax.xaxis.set_major_formatter(DateFormatter('%H:%M'))
         hours = mdates.HourLocator(byhour=range(0, 24, 4))
         ax.xaxis.set_major_locator(hours)
-        ax.set_xlabel('UT')
+        ax.set_xlabel(xlabel)
         ax.set_xlim([self.unique_times[0], self.unique_times[-1]])
         ax.set_ylabel('Range gate')
         ax.pcolormesh(mesh_x, mesh_y, masked_colormesh, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)

@@ -68,7 +68,11 @@ class DBSCAN_GMM(GMMAlgorithm):
         return data
 
 
+
+import sys
+
 if __name__ == '__main__':
+
     import datetime
     from datetime import datetime as dt
 
@@ -76,12 +80,28 @@ if __name__ == '__main__':
              dt(2017, 9, 20), dt(2017, 10, 16), dt(2017, 11, 14), dt(2017, 12, 8), dt(2017, 12, 17),
              dt(2017, 12, 18), dt(2017, 12, 19), dt(2018, 1, 25), dt(2018, 2, 7), dt(2018, 2, 8),
              dt(2018, 3, 8), dt(2018, 4, 5)]
-    rad = 'sas'
+    rad = sys.argv[1]
+
+    if rad == 'sas':
+        threshold = 'Blanchard code'
+        vel_max=200
+        vel_step=25
+    elif rad == 'cvw':
+        threshold = 'Ribiero'
+        vel_max=100
+        vel_step=10
+    else:
+        print('Cant use that radar')
+        exit()
+
+    print(rad)
+    print(dates)
+    print(threshold)
 
     for date in dates:
         start_time = date
         end_time = date + datetime.timedelta(days=1)
         dbgmm = DBSCAN_GMM(start_time, end_time, rad,
                            load_model=False, save_model=True, BoxCox=True)
-        dbgmm.plot_rti('*', 'Blanchard code', vel_max=200, vel_step=25, show_fig=False, save_fig=True)
+        dbgmm.plot_rti('*', threshold, vel_max=100, vel_step=10, show_fig=False, save_fig=True)
         #dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10, show=False, save=True)

@@ -1,5 +1,3 @@
-import sys
-sys.path.insert(0,'..')
 import os
 import pickle
 from utilities.data_utils import get_data_dict_path
@@ -63,34 +61,30 @@ class Algorithm(object):
         nrang = self.data_dict['nrang']
         gs_flg = np.hstack(self._classify(threshold))
         # Set up plot names
-        date_str = self.start_time.strftime('%m-%d-%Y')
+        date_str = self.start_time.strftime('%d/%b/%Y')
         alg = type(self).__name__
-
+        n_clust = len(np.unique(np.hstack(self.clust_flg)))
         if beam == '*':
             beams = range(int(self.data_dict['nbeam']))
         else:
             beams = [beam]
         for b in beams:
-            clust_name = ('%s %s\t\t\t\t%d clusters\t\t\t\t%s\t\t\t\tbeam %d'
-                            % (self.rad.upper(), date_str,
-                               len(np.unique(np.hstack(self.clust_flg))),
-                               alg, b)
-                          ).expandtabs()
-            isgs_name = ('%s %s\t\t\t\tIS/GS\t\t\t\t%s / %s threshold\t\t\t\tbeam %d'
-                            % (self.rad.upper(), date_str, alg, threshold, b)
-                         ).expandtabs()
-            vel_name = ('%s %s\t\t\t\t\t\t\t\tVelocity\t\t\t\t\t\t\t\tbeam %d'
-                            % (self.rad.upper(), date_str, b)
-                        ).expandtabs()
+            fig_name = ('%s\t\t\t\tBeam %d\t\t\t\t%s' % (self.rad.upper(), b, date_str)).expandtabs()
+            clust_name = ('%s : %d clusters'
+                            % (alg, len(np.unique(np.hstack(self.clust_flg))))
+                          )
+            isgs_name = ('%s : %s threshold'
+                            % (alg, threshold)
+                         )
+            vel_name = ('Velocity')
             # Create and show subplots
-            rtp = RangeTimePlot(nrang, unique_times)
+            rtp = RangeTimePlot(nrang, unique_times, fig_name)
             rtp.addClusterPlot(self.data_dict, self.clust_flg, b, clust_name)
             rtp.addGSISPlot(self.data_dict, gs_flg, b, isgs_name)
             rtp.addVelPlot(self.data_dict, b, vel_name, vel_max=vel_max, vel_step=vel_step)
             if save_fig:
                 plot_date = self.start_time.strftime('%Y%m%d')
-                filename = '%s_%s_%s_%s.jpg' % (self.rad, plot_date, b,
-                                                threshold.replace(' ', '').lower())
+                filename = '%s_%s_%02d.jpg' % (self.rad, plot_date, b)
                 filepath = self._get_plot_path(alg, 'rti') + '/' + filename
                 rtp.save(filepath)
             if show_fig:
@@ -286,7 +280,7 @@ class GMMAlgorithm(Algorithm):
     def _gmm(self, data):
         n_clusters = self.params['n_clusters']
         cov = self.params['cov']
-        estimator = GaussianMixture(n_components=n_clusters,
+        estimator = GaussianMixture(n_components=n_clusters, reg_covar=1,
                                     covariance_type=cov, max_iter=500,
                                     random_state=0, n_init=5, init_params='kmeans')
         t0 = time.time()
