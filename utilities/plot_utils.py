@@ -10,21 +10,20 @@ import random
 
 CLUSTER_CMAP = plt.cm.gist_rainbow
 
-def get_cluster_cmap():
+def get_cluster_cmap(n_clusters, plot_noise=False):
     cmap = CLUSTER_CMAP
     cmaplist = [cmap(i) for i in range(cmap.N)]
+    while len(cmaplist) < n_clusters:
+        cmaplist.extend([cmap(i) for i in range(cmap.N)])
+    cmaplist = np.array(cmaplist)
+    r = np.array(range(len(cmaplist)))
     random.seed(10)
-    random.shuffle(cmaplist)
-    return cmap.from_list('Cluster cmap', cmaplist, cmap.N)
-
-
-def get_cluster_noise_cmap():
-    cmap = CLUSTER_CMAP
-    cmaplist = np.array([cmap(i) for i in range(cmap.N)])
-    random.seed(10)
-    random.shuffle(cmaplist)
-    cmaplist[0] = (0, 0, 0, 1.0)
-    return cmap.from_list('Cluster cmap', cmaplist, cmap.N)
+    random.shuffle(r)
+    cmaplist = cmaplist[r]
+    if plot_noise:
+        cmaplist[0] = (0, 0, 0, 1.0)    # black for noise
+    rand_cmap = cmap.from_list('Cluster cmap', cmaplist, len(cmaplist))
+    return rand_cmap
 
 
 class RangeTimePlot(object):
@@ -55,13 +54,14 @@ class RangeTimePlot(object):
         if not show_closerange:
             mask = mask & (gate > 10)
         if -1 in flags:
-            cmap = get_cluster_noise_cmap()       # black for noise
+            cmap = get_cluster_cmap(len(np.unique(flags)), plot_noise=True)       # black for noise
         else:
-            cmap = get_cluster_cmap()             # no black or grey
+            cmap = get_cluster_cmap(len(np.unique(flags)), plot_noise=False)
 
         # Lower bound for cmap is inclusive, upper bound is non-inclusive
         bounds = list(range(int(np.min(flags)), int(np.max(flags))+2))    # need (max_cluster+1) to be the upper bound
-        self._create_colormesh(self.cluster_ax, time, gate, flags, mask, bounds, cmap, xlabel)
+        self._create_colormesh(self.cluster_ax, time, gate, flags, mask, bounds, cmap, xlabel,
+                               label_clusters=True)
         self.cluster_ax.set_title(title,  loc='left', fontdict={'fontweight': 'bold'})
 
 
@@ -155,7 +155,8 @@ class RangeTimePlot(object):
         cb2.set_label(label)
 
 
-    def _create_colormesh(self, ax, time, gate, flags, mask, bounds, cmap, xlabel=''):
+    def _create_colormesh(self, ax, time, gate, flags, mask, bounds, cmap, xlabel='',
+                          label_clusters=False):
         # Create a (n times) x (n range gates) array and add flag data
         num_times = len(self.unique_times)
         color_mesh = np.zeros((num_times, self.nrang)) * np.nan
@@ -163,7 +164,9 @@ class RangeTimePlot(object):
             flag_mask = (flags == f) & mask
             t = [np.where(tf == self.unique_times)[0][0] for tf in time[flag_mask]]
             g = gate[flag_mask].astype(int)
+            # Modulus to ensure values in colormesh do not exceed the number of available colors
             color_mesh[t, g] = f
+
         # Set up variables for pcolormesh
         mesh_x, mesh_y = np.meshgrid(self.unique_times, self.unique_gates)
         masked_colormesh = np.ma.masked_where(np.isnan(color_mesh.T), color_mesh.T)
@@ -177,6 +180,19 @@ class RangeTimePlot(object):
         ax.set_xlim([self.unique_times[0], self.unique_times[-1]])
         ax.set_ylabel('Range gate')
         ax.pcolormesh(mesh_x, mesh_y, masked_colormesh, lw=0.01, edgecolors='None', cmap=cmap, norm=norm)
+        if label_clusters:
+            num_flags = len(np.unique(flags))
+            for f in np.unique(flags):
+                flag_mask = (flags == f) & mask
+                g = gate[flag_mask].astype(int)
+                t_c = time[flag_mask]
+                # Only label clusters large enough to be distinguishable on RTI map,
+                # OR label all clusters if there are few
+                if (len(t_c) > 250 or
+                   (num_flags < 50 and len(t_c) > 0)) \
+                   and f != -1:
+                    m = int(len(t_c) / 2)  # Time is sorted, so this is roughly the index of the median time
+                    ax.text(t_c[m], g[m], str(int(f)), fontdict={'size': 8, 'fontweight': 'bold'})  # Label cluster #
 
 
 
@@ -209,19 +225,9 @@ class FanPlot:
                       vel_max=200, vel_step=25,
                       show=True, save=False, base_filepath=''):
         unique_clusters = np.unique(np.hstack(clust_flg))
-        if -1 in np.hstack(unique_clusters):
-            cluster_cmap = get_cluster_noise_cmap()
-        else:
-            cluster_cmap = get_cluster_cmap()
-
-        colors = np.array(cluster_cmap(range(cluster_cmap.N)))
-                                #range(int(np.min(unique_clusters)+1), int(np.max(unique_clusters)) + 2)
-                             # ))
-        n = np.array(range(int(np.min(unique_clusters) + 1), int(np.max(unique_clusters)) + 1)) % cluster_cmap.N
-        np.random.seed(0)
-        np.random.shuffle(n)
-        cluster_colors = [colors[0]]
-        cluster_colors.extend(colors[n])
+        noise = -1 in unique_clusters
+        cluster_cmap = get_cluster_cmap(len(unique_clusters), noise)
+        cluster_colors = np.array(cluster_cmap(range(cluster_cmap.N)))
         vel_ranges = list(range(-vel_max, vel_max + 1, vel_step))
         vel_ranges.insert(0, -9999)
         vel_ranges.append(9999)
@@ -237,7 +243,7 @@ class FanPlot:
                 clust_mask = clust_flg[i] == c
                 beam_c = data_dict['beam'][i][clust_mask]
                 gate_c = data_dict['gate'][i][clust_mask]
-                color = cluster_colors[c+1]
+                color = cluster_colors[(c+1) % len(cluster_colors)]
                 if c != -1:
                     m = int(len(beam_c) / 2)  # Beam is sorted, so this is roughly the index of the median beam
                     self.text(str(c), beam_c[m], gate_c[m])  # Label cluster #

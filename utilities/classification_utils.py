@@ -18,10 +18,16 @@ def ribiero_gs_flg(vel, time):
         R = high / low  # High vel / low vel ratio
     # See Figure 4 in Ribiero 2011
     if L > 14.0:
-        return True  # GS
+        # Addition by us
+        if R > 0.15:
+            return False    # IS
+        else:
+            return True     # GS
+        # Classic Ribiero 2011
+        #return True  # GS
     elif L > 3:
         if R > 0.2:
-            return False  # IS
+            return False
         else:
             return True
     elif L > 2:
