@@ -42,13 +42,38 @@ class GridBasedDBSCAN_GMM(GridBasedDBAlgorithm, GMMAlgorithm):
         return clust_flg, gbdb_runtime + gmm_runtime
 
 
+import sys
+
 if __name__ == '__main__':
+
     import datetime
-    start_time = datetime.datetime(2018, 2, 7)
-    end_time = datetime.datetime(2018, 2, 8)
-    gbdb_gmm = GridBasedDBSCAN_GMM(start_time, end_time, 'cvw', useSavedResult=False)
-    print(gbdb_gmm.__dict__.keys())
-    print(gbdb_gmm.runtime)
-    gbdb_gmm.plot_rti(8, 'Blanchard code')
-    end_time = datetime.datetime(2018, 2, 7, 23, 59)
-    gbdb_gmm.plot_fanplots(start_time, end_time, show_fig=False, save_fig=True)
+    from datetime import datetime as dt
+
+    dates = [dt(2017, 1, 17), dt(2017, 3, 13), dt(2017, 4, 4), dt(2017, 5, 30), dt(2017, 8, 20),
+             dt(2017, 9, 20), dt(2017, 10, 16), dt(2017, 11, 14), dt(2017, 12, 8), dt(2017, 12, 17),
+             dt(2017, 12, 18), dt(2017, 12, 19), dt(2018, 1, 25), dt(2018, 2, 7), dt(2018, 2, 8),
+             dt(2018, 3, 8), dt(2018, 4, 5)]
+    rad = sys.argv[1]
+
+    if rad == 'sas':
+        threshold = 'Blanchard code'
+        vel_max=200
+        vel_step=25
+    elif rad == 'cvw':
+        threshold = 'Ribiero'
+        vel_max=100
+        vel_step=10
+    else:
+        print('Cant use that radar')
+        exit()
+
+    print(rad)
+    print(dates)
+    print(threshold)
+
+    for date in dates:
+        start_time = date
+        end_time = date + datetime.timedelta(days=1)
+        gbdb = GridBasedDBSCAN_GMM(start_time, end_time, rad, scan_eps=1, load_model=False, save_model=True)
+        gbdb.plot_rti('*', threshold, vel_max=vel_max, vel_step=vel_step, show_fig=False, save_fig=True)
+        #dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10, show=False, save=True)

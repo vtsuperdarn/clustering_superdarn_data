@@ -103,5 +103,5 @@ if __name__ == '__main__':
         end_time = date + datetime.timedelta(days=1)
         dbgmm = DBSCAN_GMM(start_time, end_time, rad,
                            load_model=False, save_model=True, BoxCox=True)
-        dbgmm.plot_rti('*', threshold, vel_max=100, vel_step=10, show_fig=False, save_fig=True)
+        dbgmm.plot_rti('*', threshold, vel_max=vel_max, vel_step=vel_step, show_fig=False, save_fig=True)
         #dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10, show=False, save=True)
