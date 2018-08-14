@@ -280,7 +280,7 @@ class GMMAlgorithm(Algorithm):
     def _gmm(self, data):
         n_clusters = self.params['n_clusters']
         cov = self.params['cov']
-        estimator = GaussianMixture(n_components=n_clusters, reg_covar=1,
+        estimator = GaussianMixture(n_components=n_clusters,
                                     covariance_type=cov, max_iter=500,
                                     random_state=0, n_init=5, init_params='kmeans')
         t0 = time.time()
