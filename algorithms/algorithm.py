@@ -104,7 +104,6 @@ class Algorithm(object):
 
 
     # Private functions
-
     def _save_model(self):
         """
         Save a trained algorithm to ./pickles/<alg_name>/<parameter_hash>

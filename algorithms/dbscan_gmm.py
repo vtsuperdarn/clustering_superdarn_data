@@ -4,6 +4,7 @@ from algorithms.algorithm import GMMAlgorithm
 import numpy as np
 from sklearn.cluster import DBSCAN
 import time
+from utilities.plot_utils import MultiDayPlotter
 
 class DBSCAN_GMM(GMMAlgorithm):
     """
@@ -98,10 +99,16 @@ if __name__ == '__main__':
     print(dates)
     print(threshold)
 
-    for date in dates:
+    models = []
+    for date in dates[:8]:
         start_time = date
         end_time = date + datetime.timedelta(days=1)
         dbgmm = DBSCAN_GMM(start_time, end_time, rad,
-                           load_model=False, save_model=True, BoxCox=True)
-        dbgmm.plot_rti('*', threshold, vel_max=vel_max, vel_step=vel_step, show_fig=False, save_fig=True)
+                           load_model=True, save_model=False, BoxCox=True)
+        models.append(dbgmm)
+        #dbgmm.plot_rti('*', threshold, vel_max=vel_max, vel_step=vel_step, show_fig=False, save_fig=True)
         #dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10, show=False, save=True)
+
+    mdp = MultiDayPlotter(models)
+    mdp.plot_pdfs(threshold)
+    mdp.plot_virtual_heights(threshold)

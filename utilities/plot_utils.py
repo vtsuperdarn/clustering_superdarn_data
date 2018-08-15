@@ -8,6 +8,147 @@ import matplotlib.patches as mpatches
 import random
 
 
+class MultiDayPlotter:
+
+    def __init__(self, models):
+        """
+
+        :param models: A list of trained Algorithm objects.
+                       This assumes all objects use the same algorithm, radar, params, threshold, etc -
+                       only dates should be different.
+        """
+        self.models = models
+        self.alg = type(models[0]).__name__
+        self.rad = models[0].rad
+        self.params = models[0].params
+        self.threshold = models[0]
+
+
+    # TODO make this take a keyword for the feature to plot - so we can plot velocity or width or gate or whatever
+    def plot_pdfs(self, gs_threshold):
+        fig, ax = self._create_figure()
+        fig.suptitle(('%s IS/GS distributions\t\t%s\t\t%s threshold'
+                     % (self.rad.upper(), self.alg, gs_threshold))
+                     .expandtabs())
+        for a in ax:
+            a.set_xlabel('|Velocity| (m/s)')
+            a.set_ylabel('Probability')
+        is_bins = list(range(0, 1000, 5))
+        is_bins.append(9999)  # noise bin
+        gs_bins = list(range(0, 500, 5))
+        gs_bins.append(9999)  # noise bin
+        combined_vel = []
+        combined_gsflg = []
+        combined_trad_gsflg = []
+
+        for model in self.models:
+            vel = np.abs(np.hstack(model.data_dict['vel']))
+            gs_flg = np.hstack(model._classify(gs_threshold))
+            trad_gs_flg = np.hstack(model.data_dict['trad_gsflg'])
+            combined_vel.extend(vel)
+            combined_gsflg.extend(gs_flg)
+            combined_trad_gsflg.extend(trad_gs_flg)
+            date_str = model.start_time.strftime('%d/%b/%Y')
+            self._plot_pdf(ax[0], vel[gs_flg == 0], is_bins, date_str)
+            self._plot_pdf(ax[1], vel[gs_flg == 1], gs_bins, date_str)
+
+        combined_vel = np.array(combined_vel)
+        combined_gsflg = np.array(combined_gsflg)
+        combined_trad_gsflg = np.array(combined_trad_gsflg)
+        self._plot_pdf(ax[2], combined_vel[combined_gsflg == 0], is_bins, label=self.alg)
+        self._plot_pdf(ax[2], combined_vel[combined_trad_gsflg == 0], is_bins, label='Traditional', line='--')
+        self._plot_pdf(ax[3], combined_vel[combined_gsflg == 1], gs_bins, label=self.alg)
+        self._plot_pdf(ax[3], combined_vel[combined_trad_gsflg == 1], gs_bins, label='Traditional', line='--')
+        for a in ax:
+            a.legend()
+
+        #  TODO add savefig option, find the right folder and stuff. Do zoomed in / zoomed out
+        plt.show()
+
+
+    def plot_virtual_heights(self, gs_threshold):
+        fig, ax = self._create_figure(n_ax=3)
+        fig.suptitle(('%s Virtual height difference (h*-h)/(h*)\t\t%s threshold'
+                      % (self.rad.upper(), gs_threshold)).expandtabs())
+        for a in ax:
+            a.set_xlabel('(h*-h)/(h*)')
+            a.set_ylabel('Probability')
+        combined_vheight_diff = []
+        combined_gsflg = []
+
+        for model in self.models:
+            gs_flg = np.hstack(model._classify(gs_threshold))
+            combined_gsflg.extend(gs_flg)
+            gate = np.hstack(model.data_dict['gate'])
+            elv = np.hstack(model.data_dict['elv'])
+            r = self._get_range(gate)
+            e = elv * np.pi / 180
+            h = r * np.sin(e)
+            # h* is predicted virtual height for various regions of the ionosphere
+            h_star = self._probable_virtual_height(r)
+            h_diff = np.abs((h_star - h) / h_star)
+            combined_vheight_diff.extend(h_diff)
+            date_str = model.start_time.strftime('%d/%b/%Y')
+            self._plot_pdf(ax[0], h_diff[gs_flg == 0], 100, label=date_str)
+            self._plot_pdf(ax[1], h_diff[gs_flg == 1], 100, label=date_str)
+
+        combined_gsflg = np.array(combined_gsflg)
+        combined_vheight_diff = np.array(combined_vheight_diff)
+        self._plot_pdf(ax[2], combined_vheight_diff[combined_gsflg == 0], 100, label='IS')
+        self._plot_pdf(ax[2], combined_vheight_diff[combined_gsflg == 1], 100, label='GS')
+        for a in ax:
+            a.legend()
+        #  TODO add savefig option, find the right folder and stuff. Do zoomed in / zoomed out
+        plt.show()
+
+
+    def _create_figure(self, n_ax=4):
+        fig = plt.figure(figsize=(17, 10))
+        ax = []
+        ax.append(plt.subplot(221))
+        ax[0].set_title('IS day by day')
+        ax.append(plt.subplot(222))
+        ax[1].set_title('GS day by day')
+        ax.append(plt.subplot(223))
+        if n_ax == 4:
+            ax[2].set_title('IS total')
+            ax.append(plt.subplot(224))
+            ax[3].set_title('GS total')
+        if n_ax == 3:
+            ax[2].set_title('IS / GS total')
+        return fig, ax
+
+
+    def _plot_pdf(self, ax, data, bins, label=None, line='-', hist=False):
+        y, binEdges = np.histogram(data, bins=bins)
+        bincenters = 0.5 * (binEdges[1:] + binEdges[:-1])
+        if not hist:
+            y = y / len(data)  # Create a PDF from a histogram
+        ax.plot(bincenters, y, line, label=label)
+
+
+    # TODO this could live in classification_utils
+    def _probable_virtual_height(self, r):
+        """
+        :param r: list of ranges, km
+        :return: probable virtual height for IS at these ranges
+        """
+        h_star = np.zeros(len(r))
+        half_E_mask = r < 790
+        half_F_mask = (r >= 790) & (r < 2130)
+        one_half_F_mask = r >= 2130
+        h_star[half_E_mask] = 108.974 + 0.0191271 * r[half_E_mask] + 6.68283e-5 * r[half_E_mask] ** 2
+        h_star[half_F_mask] = 384.416 - 0.178640 * r[half_F_mask] + 1.81405e-4 * r[half_F_mask] ** 2
+        h_star[one_half_F_mask] = 1098.28 - 0.354557 * r[one_half_F_mask] + 9.39961e-5 * r[one_half_F_mask] ** 2
+        # h_star = 384.416 - 0.178640 * r + 1.81405e-4 * r**2
+        return h_star
+
+
+    # TODO this could live ... somewhere else
+    def _get_range(self, gate):
+        return 180 + 45 * gate
+
+
 CLUSTER_CMAP = plt.cm.gist_rainbow
 
 def get_cluster_cmap(n_clusters, plot_noise=False):
