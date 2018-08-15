@@ -29,33 +29,6 @@ class Algorithm(object):
             self.data_dict = self._filter_by_time(start_time, end_time, data_dict)
 
 
-    def plot_rti_traditional(self, beam, vel_max=200, vel_step=25, show=True, save=False):
-        unique_times = np.unique(np.hstack(self.data_dict['time']))
-        nrang = self.data_dict['nrang']
-        gs_flg = np.hstack(self.data_dict['trad_gsflg'])
-        alg = type(self).__name__
-        # Set up plot names
-        date_str = self.start_time.strftime('%m-%d-%Y')
-        isgs_name = ('%s %s\t\t\t\tIS/GS\t\t\t\tTraditional classification\t\t\t\tbeam %d'
-                     % (self.rad.upper(), date_str, beam)
-                     ).expandtabs()
-        vel_name = ('%s %s\t\t\t\t\t\t\t\tVelocity\t\t\t\t\t\t\t\tbeam %d'
-                    % (self.rad.upper(), date_str, beam)
-                    ).expandtabs()
-        # Create and show subplots
-        rtp = RangeTimePlot(nrang, unique_times)
-        rtp.addGSISPlot(self.data_dict, gs_flg, beam, isgs_name)
-        rtp.addVelPlot(self.data_dict, beam, vel_name, vel_max=vel_max, vel_step=vel_step)
-        if save:
-            plot_date = self.start_time.strftime('%Y%m%d')
-            filename = '%s_%s_%s_traditional.jpg' % (self.rad, plot_date, beam)
-            filepath = self._get_plot_path(alg, 'rti') + '/' + filename
-            rtp.save(filepath)
-        if show:
-            rtp.show()
-        rtp.close()
-
-
     def plot_rti(self, beam, threshold, vel_max=200, vel_step=25, show_fig=True, save_fig=False):
         unique_times = np.unique(np.hstack(self.data_dict['time']))
         nrang = self.data_dict['nrang']
@@ -63,24 +36,24 @@ class Algorithm(object):
         # Set up plot names
         date_str = self.start_time.strftime('%d/%b/%Y')
         alg = type(self).__name__
-        n_clust = len(np.unique(np.hstack(self.clust_flg)))
         if beam == '*':
             beams = range(int(self.data_dict['nbeam']))
         else:
             beams = [beam]
         for b in beams:
-            fig_name = ('%s\t\t\t\tBeam %d\t\t\t\t%s' % (self.rad.upper(), b, date_str)).expandtabs()
-            clust_name = ('%s : %d clusters'
-                            % (alg, len(np.unique(np.hstack(self.clust_flg))))
-                          )
-            isgs_name = ('%s : %s threshold'
-                            % (alg, threshold)
-                         )
-            vel_name = ('Velocity')
             # Create and show subplots
-            rtp = RangeTimePlot(nrang, unique_times, fig_name)
-            rtp.addClusterPlot(self.data_dict, self.clust_flg, b, clust_name)
+            fig_name = ('%s\t\t\t\tBeam %d\t\t\t\t%s' % (self.rad.upper(), b, date_str)).expandtabs()
+            num_subplots = 3 if alg != 'Traditional' else 2
+            rtp = RangeTimePlot(nrang, unique_times, fig_name, num_subplots=num_subplots)
+            if alg != 'Traditional':
+                clust_name = ('%s : %d clusters'
+                              % (alg, len(np.unique(np.hstack(self.clust_flg))))
+                              )
+                rtp.addClusterPlot(self.data_dict, self.clust_flg, b, clust_name)
+
+            isgs_name = ('%s : %s threshold' % (alg, threshold))
             rtp.addGSISPlot(self.data_dict, gs_flg, b, isgs_name)
+            vel_name = 'Velocity'
             rtp.addVelPlot(self.data_dict, b, vel_name, vel_max=vel_max, vel_step=vel_step)
             if save_fig:
                 plot_date = self.start_time.strftime('%Y%m%d')
@@ -180,6 +153,8 @@ class Algorithm(object):
         :param threshold: 'Ribiero' or 'Blanchard code' or 'Blanchard paper'
         :return: GS labels for each scatter point
         """
+        if type(self).__name__ == 'Traditional':
+            return self.data_dict['trad_gsflg']
         # Use abs value of vel & width
         vel = np.hstack(np.abs(self.data_dict['vel']))
         t = np.hstack(self.data_dict['time'])
