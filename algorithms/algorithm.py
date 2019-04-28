@@ -228,6 +228,9 @@ class Algorithm(object):
         except FileNotFoundError:
             raise Exception('No pickle file found for this time/radar/params/algorithm, try setting loadModel=False.')
 
+    def _get_base_output_path(self):
+        return "../data/%s_%s_scans" % (self.rad, self.start_time.strftime('%Y-%m-%d'))
+
 
 class Traditional(Algorithm):
     """
@@ -261,7 +264,8 @@ class GMMAlgorithm(Algorithm):
         estimator.fit(data)
         runtime = time.time() - t0
         clust_flg = estimator.predict(data)
-        return clust_flg, runtime
+        clust_prob = estimator.predict_proba(data)
+        return clust_flg, runtime, clust_prob, estimator
 
 
     def _gmm_on_existing_clusters(self, data, clust_flg):
@@ -272,7 +276,7 @@ class GMMAlgorithm(Algorithm):
             num_pts = np.sum(gb_cluster_mask)
             if num_pts < 500 or c == -1:
                 continue
-            gmm_labels, gmm_runtime = self._gmm(data[gb_cluster_mask])
+            gmm_labels, gmm_runtime, _, _ = self._gmm(data[gb_cluster_mask])
             runtime += gmm_runtime
             gmm_labels += np.max(clust_flg) + 1
             clust_flg[gb_cluster_mask] = gmm_labels
@@ -287,6 +291,7 @@ class GMMAlgorithm(Algorithm):
                 vals = boxcox(np.abs(vals))[0]
             data.append(vals)
         return np.column_stack(data)
+
 
 
 class GridBasedDBAlgorithm(Algorithm):

@@ -5,6 +5,7 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 import time
 from utilities.plot_utils import MultiDayPlotter
+import pandas as pd
 
 class DBSCAN_GMM(GMMAlgorithm):
     """
@@ -17,7 +18,8 @@ class DBSCAN_GMM(GMMAlgorithm):
                  features=['beam', 'gate', 'time', 'vel', 'wid'],  # GMM
                  BoxCox=False,  # GMM
                  load_model=False,
-                 save_model=False):
+                 save_model=False,
+                 save_output=True):
         super().__init__(start_time, end_time, rad,
                          {'scan_eps' : scan_eps,
                           'beam_eps': beam_eps,
@@ -37,6 +39,8 @@ class DBSCAN_GMM(GMMAlgorithm):
             print('DBSCAN+GMM clusters: ' + str(np.max(clust_flg)))
         if save_model:
             self._save_model()
+        if save_output:
+            self._save_output()
 
 
     def _dbscan_gmm(self):
@@ -69,6 +73,13 @@ class DBSCAN_GMM(GMMAlgorithm):
         return data
 
 
+    def _save_output(self):
+        filepath = self._get_base_output_path()+"_dbgmm.csv"
+        self.data_dict['clust_flg'] = self.clust_flg
+        df = pd.DataFrame.from_dict(self.data_dict)
+        df.to_csv(filepath)
+
+
 
 import sys
 
@@ -77,7 +88,8 @@ if __name__ == '__main__':
     import datetime
     from datetime import datetime as dt
 
-    dates = [dt(2017, 1, 17), dt(2017, 3, 13), dt(2017, 4, 4), dt(2017, 5, 30), dt(2017, 8, 20),
+    dates = [#dt(2017, 1, 17),
+             dt(2017, 3, 13), dt(2017, 4, 4), dt(2017, 5, 30), dt(2017, 8, 20),
              dt(2017, 9, 20), dt(2017, 10, 16), dt(2017, 11, 14), dt(2017, 12, 8), dt(2017, 12, 17),
              dt(2017, 12, 18), dt(2017, 12, 19), dt(2018, 1, 25), dt(2018, 2, 7), dt(2018, 2, 8),
              dt(2018, 3, 8), dt(2018, 4, 5)]
@@ -103,8 +115,10 @@ if __name__ == '__main__':
     for date in dates[:8]:
         start_time = date
         end_time = date + datetime.timedelta(days=1)
+        print('running DBSCAN+GMM...')
         dbgmm = DBSCAN_GMM(start_time, end_time, rad,
-                           load_model=True, save_model=False, BoxCox=True)
+                           load_model=False, save_model=True, BoxCox=True)
+        print('done')
         models.append(dbgmm)
         #dbgmm.plot_rti('*', threshold, vel_max=vel_max, vel_step=vel_step, show_fig=False, save_fig=True)
         #dbgmm.plot_fanplots(start_time, end_time, vel_max=100, vel_step=10, show=False, save=True)
